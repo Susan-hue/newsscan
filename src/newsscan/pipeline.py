@@ -17,10 +17,14 @@ from newsscan.analysis.signals import (
     claim_checks_from_lookups,
     claim_checks_not_run,
     compute_signals,
+    plausibility_cue,
+    plausibility_cue_not_run,
 )
 from newsscan.config import Settings
 from newsscan.extract.claims import ClaimExtractionError, ClaimExtractor, GroqClaimExtractor
+from newsscan.extract.groq import LLMError
 from newsscan.extract.normalize import normalise_text, text_fingerprint
+from newsscan.extract.plausibility import GroqPlausibilityAssessor, PlausibilityAssessor
 from newsscan.ingest.loader import UploadRejected, load_pages
 from newsscan.ingest.ocr import OCREngine, OCRFailed
 from newsscan.ingest.preprocess import prepare_for_ocr
@@ -40,6 +44,7 @@ def run_scan(
     settings: Settings,
     extractor: ClaimExtractor | None = None,
     lookup: FactCheckLookup | None = None,
+    assessor: PlausibilityAssessor | None = None,
 ) -> None:
     scan = session.get(Scan, scan_id)
     if scan is None:
@@ -65,6 +70,7 @@ def run_scan(
             settings=settings,
             extractor=extractor,
             lookup=lookup,
+            assessor=assessor,
         )
     except (UploadRejected, OCRFailed) as exc:
         _fail(session, scan_id, str(exc), reason=type(exc).__name__)
@@ -73,17 +79,20 @@ def run_scan(
         _fail(session, scan_id, "Something went wrong while processing the scan.", reason="internal")
 
 
-def build_claim_services(settings: Settings) -> tuple[ClaimExtractor | None, FactCheckLookup | None]:
-    """The real Groq and Google clients, or (None, None) when any key or the model is missing.
+def build_claim_services(
+    settings: Settings,
+) -> tuple[ClaimExtractor | None, FactCheckLookup | None, PlausibilityAssessor | None]:
+    """The real Groq and Google clients, or Nones when any key or the model is missing.
 
     Off by default so the text of a scan is never sent to an outside service by accident.
     """
     if not settings.claim_checking_enabled:
-        return None, None
+        return None, None, None
     assert settings.groq_api_key and settings.fact_check_api_key  # for the type checker; enabled implies set
     return (
         GroqClaimExtractor(settings.groq_api_key.get_secret_value(), settings.groq_model),
         GoogleFactCheckLookup(settings.fact_check_api_key.get_secret_value()),
+        GroqPlausibilityAssessor(settings.groq_api_key.get_secret_value(), settings.groq_model),
     )
 
 
@@ -134,6 +143,23 @@ def check_claims(
     return claim_checks_from_lookups(claims, found, failures)
 
 
+def assess_plausibility(scan_id: str, text: str, assessor: PlausibilityAssessor) -> Signal:
+    """Ask the AI for satire markers. A failure is a `not_run` signal, never a failed scan."""
+    try:
+        result = assessor.assess(text)
+        EXTERNAL_CALLS.labels(service="groq", outcome="ok").inc()
+    except LLMError as exc:
+        EXTERNAL_CALLS.labels(service="groq", outcome="error").inc()
+        logger.warning("plausibility check failed", extra={"scan_id": scan_id})
+        return plausibility_cue_not_run(str(exc))
+    except Exception:
+        EXTERNAL_CALLS.labels(service="groq", outcome="error").inc()
+        logger.exception("plausibility check crashed", extra={"scan_id": scan_id})
+        return plausibility_cue_not_run("The plausibility check failed unexpectedly.")
+    logger.info("plausibility checked", extra={"scan_id": scan_id, "level": result.level})
+    return plausibility_cue(result.level, result.reasons)
+
+
 def _process(
     session: Session,
     scan: Scan,
@@ -143,6 +169,7 @@ def _process(
     settings: Settings,
     extractor: ClaimExtractor | None,
     lookup: FactCheckLookup | None,
+    assessor: PlausibilityAssessor | None,
 ) -> None:
     scan_id = scan.id
 
@@ -194,8 +221,13 @@ def _process(
         with timed_stage(logger, scan_id, "claims"):
             claim_signal = check_claims(scan_id, text, extractor, lookup, settings.max_claims_per_scan)
 
+    plausibility_signal = None
+    if assessor is not None and text.strip():
+        with timed_stage(logger, scan_id, "plausibility"):
+            plausibility_signal = assess_plausibility(scan_id, text, assessor)
+
     with timed_stage(logger, scan_id, "analyse"):
-        signals = compute_signals(text, mean_confidence, claim_signal)
+        signals = compute_signals(text, mean_confidence, claim_signal, plausibility_signal)
 
     with timed_stage(logger, scan_id, "report"):
         report = build_report(signals, len(text), mean_confidence)

@@ -64,6 +64,11 @@ def build_report(signals: list[Signal], char_count: int, mean_confidence: float 
             "so this scan has no credibility verdict."
         )
 
+    cue = next((s for s in signals if s.name == "plausibility_cue" and s.status == "ok" and s.value), None)
+    if cue is not None and char_count >= MIN_USEFUL_CHARS:
+        # The cue never moves the band, but a reader should not have to scroll to learn about it.
+        summary += " An AI model also noticed signs this page may be satire or implausible (see below)."
+
     return ReportData(
         band=band,
         summary=summary,

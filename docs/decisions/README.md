@@ -13,3 +13,4 @@ changes it.
 | [003](ADR-003-ocr-engine.md) | OCR engine and reading order | **Proposed.** Owner decision needed |
 | [004](ADR-004-defaults-pending-review.md) | Defaults Claude chose, awaiting review | **Proposed.** Review each row |
 | [005](ADR-005-llm-claim-extraction.md) | LLM claim extraction feeding the Fact Check lookup (M4) | Accepted (owner). Model, limits and opt-in still open |
+| [006](ADR-006-plausibility-cue.md) | AI plausibility cue for satire and implausible pages | Accepted (owner). Built, not measured |

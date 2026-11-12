@@ -222,7 +222,7 @@ def test_real_services_are_built_only_when_every_setting_is_present(monkeypatch)
 
     for name in ("GROQ_API_KEY", "GROQ_MODEL", "FACT_CHECK_API_KEY"):
         monkeypatch.delenv(f"NEWSSCAN_{name}", raising=False)
-    assert build_claim_services(Settings(_env_file=None)) == (None, None)
+    assert build_claim_services(Settings(_env_file=None)) == (None, None, None)
     full = Settings(_env_file=None, groq_api_key="a", groq_model="m", fact_check_api_key="b")
-    extractor, lookup = build_claim_services(full)
-    assert extractor is not None and lookup is not None
+    extractor, lookup, assessor = build_claim_services(full)
+    assert extractor is not None and lookup is not None and assessor is not None

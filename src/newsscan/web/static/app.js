@@ -76,6 +76,20 @@
     box.hidden = items.length === 0;
   }
 
+  function renderPlausibility(report) {
+    var box = document.getElementById("plausibility");
+    var list = document.getElementById("plausibility-list");
+    list.replaceChildren();
+    var signal = report.signals.find(function (s) { return s.name === "plausibility_cue"; });
+    var items = (signal && signal.value > 0 && signal.items) || [];
+    items.forEach(function (item) {
+      var li = document.createElement("li");
+      li.textContent = item.reason;
+      list.appendChild(li);
+    });
+    box.hidden = items.length === 0;
+  }
+
   function render(scan) {
     var report = scan.report;
     var doc = scan.document;
@@ -93,6 +107,7 @@
       tbody.appendChild(row);
     });
 
+    renderPlausibility(report);
     renderFactChecks(report);
 
     var list = document.getElementById("limitations");

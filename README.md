@@ -32,6 +32,10 @@ publisher, the publisher's own rating text and a link. The band does **not** say
 matches come from a keyword search and can be about a different claim. With no match, or any failure, the
 band stays `insufficient_evidence`. `source_signals` is still `not_run`.
 
+The same Groq model also gives a **plausibility cue** ([ADR-006](docs/decisions/ADR-006-plausibility-cue.md)):
+it may point at visible satire or implausibility markers (a pun byline, impossible figures) and give short
+reasons. It is a `heuristic` signal, **cannot move the band**, can be wrong, and says nothing about truth.
+
 **Privacy:** when claim checking is on, the recognised text is sent to Groq and the claims to Google. Keys
 stay in `.env` (never in Git) and only the worker container receives them.
 
@@ -129,8 +133,8 @@ More in [docs/architecture.md](docs/architecture.md). Decisions are in [docs/dec
   See [ADR-003](docs/decisions/ADR-003-ocr-engine.md).
 - **Fact-checking only covers claims someone has already reviewed**, so most pages still end at
   `insufficient_evidence`. A satirical or invented page with no published fact-check looks the same as an
-  honest one. Matches are keyword-based and can be off-topic. Claim picking by the AI model has been tried on a
-  few samples, not measured.
+  honest one. Matches are keyword-based and can be off-topic. Claim picking and the
+  plausibility cue have been tried on a few samples, not measured. Satire that reads plausibly is not caught.
 - **No authentication, quotas or rate limits.** Fine on localhost, not on the internet.
 - **Tracing is not built.** Metrics and JSON logs are; OpenTelemetry traces come in the platform's tracing stage.
 - Uploaded files stay on disk in a volume. There is no retention or deletion policy yet.

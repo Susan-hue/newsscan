@@ -11,7 +11,7 @@ from newsscan.worker.celery_app import celery_app
 @celery_app.task(name="newsscan.process_scan")
 def process_scan(scan_id: str) -> None:
     settings = get_settings()
-    extractor, lookup = build_claim_services(settings)  # (None, None) unless every key is set
+    extractor, lookup, assessor = build_claim_services(settings)  # all None unless every key is set
     with session_scope() as session:
         run_scan(
             session,
@@ -21,4 +21,5 @@ def process_scan(scan_id: str) -> None:
             settings=settings,
             extractor=extractor,
             lookup=lookup,
+            assessor=assessor,
         )

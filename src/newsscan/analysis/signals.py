@@ -93,6 +93,31 @@ def sensational_phrases(text: str) -> Signal:
     )
 
 
+def plausibility_cue_not_run(detail: str) -> Signal:
+    return Signal("plausibility_cue", "heuristic", "not_run", None, detail)
+
+
+def plausibility_cue(level: str, reasons: list[str]) -> Signal:
+    """The AI's satire/implausibility cue. A heuristic: shown for transparency, never moves the band."""
+    if level == "possible" and reasons:
+        return Signal(
+            "plausibility_cue",
+            "heuristic",
+            "ok",
+            1.0,
+            "An AI model noticed signs this page may be satire or implausible. It can be wrong, and "
+            "this says nothing about whether any claim is true or false.",
+            [{"reason": reason} for reason in reasons],
+        )
+    return Signal(
+        "plausibility_cue",
+        "heuristic",
+        "ok",
+        0.0,
+        "An AI model saw no obvious satire markers. That does not mean the page is true.",
+    )
+
+
 def claim_checks() -> Signal:
     """The default: claim checking is off (no keys configured), so say so plainly."""
     return claim_checks_not_run(
@@ -155,13 +180,20 @@ def source_signals() -> Signal:
 
 
 def compute_signals(
-    text: str, mean_confidence: float | None, claim_check: Signal | None = None
+    text: str,
+    mean_confidence: float | None,
+    claim_check: Signal | None = None,
+    plausibility: Signal | None = None,
 ) -> list[Signal]:
     return [
         ocr_quality(mean_confidence),
         caps_word_ratio(text),
         exclamation_density(text),
         sensational_phrases(text),
+        plausibility
+        or plausibility_cue_not_run(
+            "The AI plausibility cue is switched off. It needs the Groq key (ADR-006)."
+        ),
         source_signals(),
         claim_check or claim_checks(),
     ]
