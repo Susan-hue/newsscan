@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: newsscan
+    folder: newsscan
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false          # changes must be exported to a file, not saved in the UI
+    options:
+      path: /etc/grafana/dashboards

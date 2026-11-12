@@ -1,0 +1,10 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy                  # Grafana's server asks Prometheus, not your browser
+    url: http://prometheus:9090    # the service name on the shared network
+    isDefault: true
+    editable: false

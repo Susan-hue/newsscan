@@ -154,4 +154,5 @@ It is a learning project, not production.
 | Step | Status |
 |---|---|
 | A Prometheus | Done and checked locally. Recap pending |
-| B to F | Not started |
+| B Grafana | Done and checked: 7-panel dashboard loads from a file |
+| C to F | Not started |

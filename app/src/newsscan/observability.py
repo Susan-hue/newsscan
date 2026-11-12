@@ -45,6 +45,30 @@ STAGE_SECONDS = Histogram(
 )
 QUEUE_DEPTH = Gauge("newsscan_queue_depth", "Scan jobs waiting in the queue")
 
+# Pipeline stage names. A test checks this list against pipeline.py.
+STAGES = (
+    "read_file",
+    "load",
+    "preprocess",
+    "ocr",
+    "normalise",
+    "register",
+    "claims",
+    "plausibility",
+    "analyse",
+    "report",
+)
+
+# A counter that first appears at its first event makes rate() and increase() miss that event.
+# Creating every known label combination now makes them start at 0, so the first event is seen.
+for _outcome in ("done", "failed"):
+    SCANS_FINISHED.labels(outcome=_outcome)
+for _service in ("groq", "factcheck"):
+    for _outcome in ("ok", "error"):
+        EXTERNAL_CALLS.labels(service=_service, outcome=_outcome)
+for _stage in STAGES:
+    STAGE_SECONDS.labels(stage=_stage)
+
 _RESERVED = set(logging.LogRecord("", 0, "", 0, "", (), None).__dict__) | {"message", "asctime"}
 
 

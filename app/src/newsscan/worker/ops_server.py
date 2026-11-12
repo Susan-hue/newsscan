@@ -8,7 +8,9 @@ prometheus_client's own start_http_server answers every path with the metrics pa
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, REGISTRY, CollectorRegistry, Gauge, generate_latest
+
+from newsscan.observability import QUEUE_DEPTH
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -36,6 +38,15 @@ def make_server(port: int) -> ThreadingHTTPServer:
     return ThreadingHTTPServer(("0.0.0.0", port), _Handler)  # 0.0.0.0 so other containers can reach it
 
 
+def drop_api_only_metrics(registry: CollectorRegistry, queue_depth: Gauge) -> None:
+    """Only the API fills the queue gauge. The worker would report a fake 0 next to the API's real number."""
+    try:
+        registry.unregister(queue_depth)
+    except KeyError:
+        pass  # already gone
+
+
 def start_ops_server(port: int) -> None:
+    drop_api_only_metrics(REGISTRY, QUEUE_DEPTH)
     server = make_server(port)
     threading.Thread(target=server.serve_forever, daemon=True, name="worker-ops").start()

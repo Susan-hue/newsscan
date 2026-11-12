@@ -25,6 +25,27 @@ services:
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
 
+  grafana:
+    image: grafana/grafana:12.2.0   # a fixed version, so it doesn't change on its own
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in platform/.env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    ports:
+      - "127.0.0.1:3000:3000"   # only reachable from this computer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+    networks:
+      - app
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
 networks:
   app:
     name: newsscan_default   # the app's network, created by the main compose file

@@ -3,8 +3,9 @@ import urllib.error
 import urllib.request
 
 import pytest
+from prometheus_client import CollectorRegistry, Gauge, generate_latest
 
-from newsscan.worker.ops_server import make_server
+from newsscan.worker.ops_server import drop_api_only_metrics, make_server
 
 
 @pytest.fixture()
@@ -27,7 +28,7 @@ def get(url):
 
 def test_metrics_path_serves_metrics(base_url):
     status, body = get(base_url + "/metrics")
-    assert status == 200 and "newsscan_queue_depth" in body
+    assert status == 200 and "newsscan_stage_duration_seconds" in body
 
 
 def test_healthz_says_alive(base_url):
@@ -45,3 +46,13 @@ def test_every_other_path_is_404(base_url, path):
 def test_query_strings_do_not_change_the_route(base_url):
     assert get(base_url + "/healthz?x=1")[0] == 200
     assert get(base_url + "/banana?path=/metrics")[0] == 404
+
+
+def test_the_worker_drops_the_queue_gauge_it_never_fills():
+    registry = CollectorRegistry()
+    queue = Gauge("newsscan_queue_depth", "Scan jobs waiting", registry=registry)
+    Gauge("newsscan_other", "Something else", registry=registry)
+    drop_api_only_metrics(registry, queue)
+    text = generate_latest(registry).decode()
+    assert "newsscan_queue_depth" not in text and "newsscan_other" in text
+    drop_api_only_metrics(registry, queue)  # doing it twice must not fail
