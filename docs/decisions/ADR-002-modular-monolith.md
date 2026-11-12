@@ -1,33 +1,33 @@
-# ADR-002: Modular monolith with a separate worker
+# ADR-002: One codebase, with a separate worker
 
 - **Status:** Accepted
 - **Proposed by:** Claude. **Confirmed by:** the owner ("Modular monolith is perfect")
 - **Date:** 2026-11-11
 
-## Question
+## The problem
 
-How should the Fake News Detection System be split into deployable parts?
+How should the app be split into running parts?
 
 ## Options
 
-| Option | Gain | Cost |
+| Option | Good | Bad |
 |---|---|---|
-| Single process, work done in a FastAPI background task | Simplest | OCR is slow and CPU heavy, so it competes with request handling; work is lost on restart; nothing to monitor as a queue |
-| **Modular monolith: one codebase, API process plus worker process, Postgres, Redis** | **Real async pipeline with a queue to monitor; simple to build, test and run on a laptop; module seams are ready if a split is ever needed** | **Two processes to run; some discipline needed to keep module boundaries clean** |
-| Microservices (one service per stage) | Independent scaling, impressive diagram | Network calls, contracts, and deployment overhead for a one-person project; far more RAM; would starve the observability work of time and memory |
+| Everything in one process, as a background task | Simplest | OCR is slow and heavy, so it slows down web requests; work is lost on a restart; no queue to monitor |
+| **One codebase, an API process plus a worker process, Postgres and Redis** (chosen) | A real queue to monitor; easy to build, test and run on a laptop; easy to split later | Two processes to run; you must keep the code's parts separate |
+| Microservices, one per stage | Scale each part alone | Far more work and RAM for a one-person project; would starve the monitoring work |
 
 ## Decision
 
-The modular monolith. Package folders mirror the pipeline stages (`ingest`, `extract`, `analysis`,
-`aggregate`). The worker runs the same image as the API with a different command.
+One codebase. Its folders match the pipeline stages (`ingest`, `extract`, `analysis`, `aggregate`). The worker
+runs the same image as the API, with a different command.
 
-## Why it suits this project
+## Why it fits
 
-The app exists to be monitored. A queue, a worker, a database and a cache give the platform real things to
-watch (queue depth, stage latency, failures) without the app costing more RAM than the platform.
+The app exists to be monitored. A queue, a worker, a database and a cache give the monitoring real things to watch
+(queue length, time per stage, failures) without the app using more RAM than the monitoring.
 
-## Consequences
+## What this means
 
-- Module boundaries are conventions, not walls. `CLAUDE.md` states the rules (for example `analysis` never
-  imports from `api`).
-- Splitting a stage out later is a refactor, not a rewrite. Do it only with a concrete reason.
+- The separation between folders is a habit, not a wall. `CLAUDE.md` has the rules (for example, `analysis` never
+  imports from `api`), and a test checks them.
+- Splitting a stage out later is a refactor, not a rewrite. Only do it with a real reason.

@@ -7,6 +7,7 @@ Metrics (Prometheus):
   newsscan_scans_finished_total{outcome}
   newsscan_stage_duration_seconds{stage}
   newsscan_queue_depth
+  newsscan_external_calls_total{service,outcome}
 
 Logs: one JSON object per line on stdout. Pipeline lines carry scan_id and stage.
 """

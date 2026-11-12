@@ -1,13 +1,15 @@
-# Local development stack: Postgres, Redis, a one-shot migration, the API and the worker.
-#
+# The app: Postgres, Redis, a one-time migration, the API and the worker.
+# Run these from the app/ folder:
 #   cp .env.example .env     # then set POSTGRES_PASSWORD
 #   docker compose up --build
 #   open http://127.0.0.1:8000
 #
-# Network exposure: only the API (8000) and the worker metrics (9101) are published, and only on
-# 127.0.0.1. Postgres and Redis are reachable from other containers on the compose network, never
-# from the host or the LAN. Prometheus will join this network later and scrape api:8000/metrics and
-# worker:9101/metrics.
+# Only the API (8000) and the worker metrics (9101) are published, and only on 127.0.0.1.
+# Postgres and Redis stay inside the Docker network.
+
+# A fixed name keeps the volumes (newsscan_pgdata, newsscan_uploads) and the network (newsscan_default)
+# the same, even though this file now lives in app/. Don't change it: a new name means new, empty volumes.
+name: newsscan
 
 x-app-env: &app-env
   NEWSSCAN_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-newsscan}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-newsscan}

@@ -1,46 +1,39 @@
-# ADR-006: AI plausibility cue for satire and implausible pages
+# ADR-006: An AI hint for satire and unlikely content
 
-- **Status:** **Accepted (owner)**, 2026-11-12. Built the same day. Not yet measured.
-- **Decided by:** the owner, chosen from four options after Claude laid out the trade-offs.
+- **Status:** Accepted (owner), 2026-11-12. Built. Not measured.
+- **Decided by:** the owner, from four options.
 
-## Question
+## The problem
 
-A satirical or invented page with no published fact-check looks exactly like an honest one: both end at
-`insufficient_evidence`. (Found with a generated "Daily News" test page about moose exports.) What can the
-app say about such pages?
+A satire or made-up page with no fact-check looks the same as an honest one. Both say "not enough evidence".
+We found this with a generated "Daily News" page about moose exports.
 
-## Options considered
+## Options
 
-| Option | Gain | Cost and risk |
+| Option | Good | Bad |
 |---|---|---|
-| **AI plausibility cue, band unchanged** (**chosen**) | Points at visible markers (pun names, impossible figures, parody wording, watermarks) with reasons; one extra Groq call, no new service | The model can be wrong in both directions; puts the model closer to judging content, so it must stay a cue |
-| Corroboration against other news sources | Closest thing to a real fix for invented news | New paid API, more privacy exposure, false alarms for genuine local stories; its own milestone |
-| Measure first | Gives numbers for later decisions | Fixes nothing by itself |
-| Leave it | No work | Satire still looks like an honest page |
+| **AI hint, band unchanged** (chosen) | Points at visible signs (joke names, impossible numbers) and says why; one more Groq call | The AI can be wrong either way, so it stays a hint |
+| Check other news sources | The closest thing to a real fix | New paid service, more privacy cost, false alarms for local stories. A project of its own |
+| Measure first | Gives real numbers | Fixes nothing by itself |
+| Do nothing | No work | Satire still looks honest |
 
-## Decision
+## What we do
 
-Add a second, separate Groq call that returns `possible` or `none` plus up to 3 short reasons. It is stored as
-a `heuristic` signal named `plausibility_cue`.
+A second Groq call answers "possible" or "none" plus up to 3 short reasons. It shows as a signal called
+`plausibility_cue`.
 
-## Guardrails
+## Rules
 
-1. **It cannot move the band.** Only `evidence` signals can (CLAUDE.md). The cue is `heuristic`, so this is
-   structural, not a promise. If it says `possible`, one sentence is added to the summary so a reader sees it.
-2. **It never judges truth.** The prompt forbids it, asks only for visible markers, and says to be
-   conservative: dull or one-sided news is `none`.
-3. **No reason, no flag.** A `possible` without a nameable reason is dropped to `none`.
-4. **Wording:** "may be satire or implausible", never "fake". No accuracy claim.
-5. **Same rules as ADR-005:** the page text is fenced as untrusted data and capped; output is validated; any
-   failure is a `not_run` signal and the scan still finishes; same keys, only the worker has them; metrics use
-   the bounded `service`/`outcome` labels; claim and page text are never logged.
-6. **Runs only when claim checking is on** (the same three settings), so nothing new leaves the machine
-   without the existing opt-in. The privacy notice already covers it.
+1. It can't move the band. Only evidence can. If it says "possible", one sentence is added to the summary.
+2. It never says whether claims are true. It only points at visible signs, and defaults to "none".
+3. No reason, no flag.
+4. The wording is "may be satire or implausible", never "fake".
+5. It follows the same safety rules as ADR-005 (untrusted text, checked replies, failures don't stop the scan).
+6. It runs only when claim checking is on, so nothing new leaves the machine.
 
-## Consequences and limits
+## Limits
 
-- It was tried on two samples only. That is not a measurement. It will miss subtle satire and may flag
-  dry or quirky real writing. The test set from the "measure first" option is still worth building.
-- It adds one more Groq call per scan (cost, a little latency).
-- It does not detect invented news that reads plausibly. Only corroboration against other sources could, and
-  that remains a separate, unbuilt option.
+- Tried on two samples only. That's not a measurement.
+- It missed the pun in the byline "HAL E. TOSIS". One reason it gave ("garbled text") was really an OCR problem.
+- It adds one Groq call per scan.
+- It won't catch made-up news that sounds believable. That would need the "other sources" option.

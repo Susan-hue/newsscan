@@ -14,10 +14,10 @@ import logging
 
 from celery import Celery
 from celery.signals import setup_logging, worker_ready
-from prometheus_client import start_http_server
 
 from newsscan.config import get_settings
 from newsscan.observability import configure_logging
+from newsscan.worker.ops_server import start_ops_server
 
 _settings = get_settings()
 
@@ -43,7 +43,7 @@ def _configure_logging(**_: object) -> None:
 
 @worker_ready.connect
 def _start_metrics_server(**_: object) -> None:
-    start_http_server(_settings.worker_metrics_port)
+    start_ops_server(_settings.worker_metrics_port)
     logging.getLogger("newsscan.worker").info(
-        "worker metrics server started", extra={"port": _settings.worker_metrics_port}
+        "worker ops server started", extra={"port": _settings.worker_metrics_port}
     )

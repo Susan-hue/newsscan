@@ -1,6 +1,6 @@
 # ADR-001: Signal scope for Project 1 (metrics, logs, traces)
 
-- **Status:** Accepted
+- **Status:** Accepted, then **replaced by [ADR-011](ADR-011-drop-traces.md)** on 2026-11-12: the owner dropped traces (Option B). The text below is kept as history.
 - **Decided by:** the owner (Claude had recommended Option B)
 - **Date:** 2026-11-11
 

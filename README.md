@@ -1,49 +1,52 @@
 # Fake News Detection System
 
-Upload a photo or scan of a newspaper page (image or PDF). The app reads the text with OCR,
-registers the document, and returns a **credibility report**.
+Upload a photo or scan of a newspaper page (an image or a PDF). The app reads the text, saves the document,
+and gives you a **credibility report**.
 
-> **Status: milestone M1, a walking skeleton. Not production.**
-> The whole path works end to end (upload, queue, OCR, register, analyse, report) and is tested,
-> but the analysis is still shallow. See [What the report does and does not say](#what-the-report-does-and-does-not-say).
+> **Status: working on a laptop, not production.**
+> The whole path works and is tested: upload, queue, text reading (OCR), analysis, report. The analysis is still
+> shallow, so read [what the report says](#what-the-report-does-and-does-not-say).
 
-This app is also the **monitored workload for Project 1** (the observability platform: Prometheus,
-Grafana, Alertmanager and friends). It is intentionally small and exposes metrics and structured logs
-so the platform has something real to watch.
+This app is also the thing the monitoring project watches (Prometheus, Grafana and so on). It is kept small on
+purpose. It gives out metrics and structured logs so the monitoring has something real to look at.
 
 ## What the report does and does not say
 
-The system does **not** output "fake" or "real". Models that do that generalise badly to new
-sources and topics, and a confident wrong label is worse than no label. Instead each report has:
+The app never says "fake" or "real". A wrong answer given with confidence does more harm than no answer.
+Each report has:
 
-- a **band** (`insufficient_evidence` or `related_fact_checks`; `weak_signals`, `mixed` and `reliable_signals` are reserved),
-- a table of **signals**, each marked `quality`, `heuristic` or `evidence`, and `ok` or `not_run`,
-- plain-language **limitations**.
+- a **band**: `insufficient_evidence` or `related_fact_checks`. (`weak_signals`, `mixed` and `reliable_signals`
+  are saved for later.)
+- a table of **signals**. Each is a `quality` check, a `heuristic` (a weak writing-style hint), or `evidence`
+  (checked against something outside the text). Each is either `ok` or `not_run`.
+- a short list of **limits**, in plain words.
 
-Quality and heuristic signals always run (OCR confidence, ALL-CAPS ratio, exclamation density,
-sensational phrases). They are context and **cannot move the band**.
+The quality checks and hints always run: OCR confidence, share of ALL-CAPS words, exclamation marks, and
+clickbait phrases. They give context but **can't change the band**.
 
-**Claim checking (M4, [ADR-005](docs/decisions/ADR-005-llm-claim-extraction.md))** is the only evidence
-source and is **off by default**. When `NEWSSCAN_GROQ_API_KEY`, `NEWSSCAN_GROQ_MODEL` and
-`NEWSSCAN_FACT_CHECK_API_KEY` are all set in `.env`, the worker asks a Groq-hosted model to pick out checkable
-claims and searches each one in Google's Fact Check Tools API. The model only proposes claims; it is never
-evidence. If matches are found the band becomes `related_fact_checks` and each match is listed with its
-publisher, the publisher's own rating text and a link. The band does **not** say the page is true or false:
-matches come from a keyword search and can be about a different claim. With no match, or any failure, the
-band stays `insufficient_evidence`. `source_signals` is still `not_run`.
+**Claim checking** ([ADR-005](docs/decisions/ADR-005-llm-claim-extraction.md)) is the only source of evidence.
+It is **off by default**. It turns on when `NEWSSCAN_GROQ_API_KEY`, `NEWSSCAN_GROQ_MODEL` and
+`NEWSSCAN_FACT_CHECK_API_KEY` are all set in `.env`. Then the worker asks an AI model (on Groq) to pick out
+claims, and looks each one up in Google's Fact Check Tools. The AI only suggests claims. It is never evidence.
 
-The same Groq model also gives a **plausibility cue** ([ADR-006](docs/decisions/ADR-006-plausibility-cue.md)):
-it may point at visible satire or implausibility markers (a pun byline, impossible figures) and give short
-reasons. It is a `heuristic` signal, **cannot move the band**, can be wrong, and says nothing about truth.
+If Google returns matches, the band becomes `related_fact_checks`. Each match shows who rated it, their own
+words, and a link. The band does **not** say the page is true or false, because the search matches keywords and
+a result can be about something else. With no matches, or if anything fails, the band stays
+`insufficient_evidence`. `source_signals` is still not run.
 
-**Privacy:** when claim checking is on, the recognised text is sent to Groq and the claims to Google. Keys
-stay in `.env` (never in Git) and only the worker container receives them.
+The same AI also gives a **satire hint** ([ADR-006](docs/decisions/ADR-006-plausibility-cue.md)). It may point at
+visible signs, like a joke byline or impossible numbers, and say why. It can't move the band, it can be wrong,
+and it says nothing about whether the page is true.
+
+**Privacy:** when claim checking is on, the scanned text goes to Groq and the claims go to Google. The keys stay
+in `.env`, which Git ignores, and only the worker container gets them.
 
 ## Quick start (Docker Compose)
 
 Requires Docker with the Compose plugin.
 
 ```bash
+cd app
 cp .env.example .env
 # edit .env and set POSTGRES_PASSWORD (letters and digits only, e.g. `openssl rand -hex 24`)
 docker compose up --build
@@ -63,6 +66,7 @@ Everything published to the host is bound to `127.0.0.1`, so nothing is reachabl
 ### Try it without a real scan
 
 ```bash
+cd app
 python scripts/make_demo_page.py demo.png      # draws a synthetic two-column page (an easy case)
 python scripts/scan.py http://127.0.0.1:8000 demo.png
 ```
@@ -92,6 +96,7 @@ curl -s http://127.0.0.1:8000/v1/scans/<id>
 Needs Python 3.12+, Tesseract (`sudo apt install tesseract-ocr`) and a Redis server.
 
 ```bash
+cd app
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
@@ -105,23 +110,24 @@ uvicorn newsscan.main:app --reload
 ```
 
 Settings come from environment variables with the `NEWSSCAN_` prefix (see `.env.example` and
-`src/newsscan/config.py`).
+`app/src/newsscan/config.py`).
 
 ## Layout
 
 ```
-src/newsscan/
-  api/        HTTP routes and response schemas
-  worker/     Celery app and the one task
-  ingest/     file validation, page loading, preprocessing, OCR, reading order
-  extract/    text normalisation and fingerprint
-  analysis/   signals
-  aggregate/  signals -> report
-  pipeline.py runs the stages for one scan
-  models.py db.py storage.py config.py observability.py main.py
-migrations/   Alembic
-scripts/      demo page generator and a small upload client
-docs/         architecture and decision records (ADRs)
+app/          the app (everything you build and run for the scanner)
+  src/newsscan/
+    api/        HTTP routes and response schemas
+    worker/     Celery app and the one task
+    ingest/     file checks, page loading, cleanup, OCR, column reading
+    extract/    text cleanup, and the AI calls that find claims and satire hints (Groq)
+    analysis/   signals, and the fact-check lookup (Google)
+    aggregate/  signals -> report
+    pipeline.py runs the stages for one scan
+    models.py db.py storage.py config.py observability.py main.py
+  tests/  migrations/  scripts/  Dockerfile  docker-compose.yml  pyproject.toml
+platform/     the monitoring stack (Prometheus now; Grafana and more later)
+docs/         architecture and decision records (ADRs), shared by both
 ```
 
 More in [docs/architecture.md](docs/architecture.md). Decisions are in [docs/decisions/](docs/decisions/).
@@ -131,10 +137,21 @@ More in [docs/architecture.md](docs/architecture.md). Decisions are in [docs/dec
 - **OCR on real newspapers is unproven.** Tested only on synthetic pages. Multi-column ordering
   works on clean and slightly skewed synthetic pages and **fails at about 3 degrees of skew**.
   See [ADR-003](docs/decisions/ADR-003-ocr-engine.md).
-- **Fact-checking only covers claims someone has already reviewed**, so most pages still end at
-  `insufficient_evidence`. A satirical or invented page with no published fact-check looks the same as an
-  honest one. Matches are keyword-based and can be off-topic. Claim picking and the
-  plausibility cue have been tried on a few samples, not measured. Satire that reads plausibly is not caught.
+- **Fact-checking only covers claims someone has already reviewed.** Most pages still end at
+  `insufficient_evidence`. A satire or invented page with no fact-check looks the same as an honest one.
+  Matches can be off-topic. The AI's claim picking and satire hint were tried on a few samples, not measured.
+  Satire that sounds believable is not caught.
 - **No authentication, quotas or rate limits.** Fine on localhost, not on the internet.
-- **Tracing is not built.** Metrics and JSON logs are; OpenTelemetry traces come in the platform's tracing stage.
+- **No tracing, by choice.** The app gives out metrics and JSON logs. Traces were dropped ([ADR-011](docs/decisions/ADR-011-drop-traces.md)).
 - Uploaded files stay on disk in a volume. There is no retention or deletion policy yet.
+
+## Platform
+
+A monitoring lab for this app lives in [`platform/`](platform/README.md). We build metrics first, then logs
+([ADR-007](docs/decisions/ADR-007-platform-stage1-build-order.md), [ADR-011](docs/decisions/ADR-011-drop-traces.md)).
+It is a learning project, not production.
+
+| Step | Status |
+|---|---|
+| A Prometheus | Done and checked locally. Recap pending |
+| B to F | Not started |
