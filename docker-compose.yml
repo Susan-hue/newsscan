@@ -1,0 +1,108 @@
+# Local development stack: Postgres, Redis, a one-shot migration, the API and the worker.
+#
+#   cp .env.example .env     # then set POSTGRES_PASSWORD
+#   docker compose up --build
+#   open http://127.0.0.1:8000
+#
+# Network exposure: only the API (8000) and the worker metrics (9101) are published, and only on
+# 127.0.0.1. Postgres and Redis are reachable from other containers on the compose network, never
+# from the host or the LAN. Prometheus will join this network later and scrape api:8000/metrics and
+# worker:9101/metrics.
+
+x-app-env: &app-env
+  NEWSSCAN_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-newsscan}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-newsscan}
+  NEWSSCAN_REDIS_URL: redis://redis:6379/0
+  NEWSSCAN_STORAGE_DIR: /data/uploads
+
+x-app: &app
+  build: .
+  image: newsscan:dev
+  environment: *app-env
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-newsscan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-newsscan}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    # No persistence: the queue only holds scan ids, and the database is the source of truth.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    <<: *app
+    # Only the worker gets the claim-checking keys (ADR-005); the API never calls Groq or Google.
+    # Values come from .env. If any is empty, claim checking stays off and nothing leaves the machine.
+    environment:
+      <<: *app-env
+      NEWSSCAN_GROQ_API_KEY: ${NEWSSCAN_GROQ_API_KEY:-}
+      NEWSSCAN_GROQ_MODEL: ${NEWSSCAN_GROQ_MODEL:-}
+      NEWSSCAN_FACT_CHECK_API_KEY: ${NEWSSCAN_FACT_CHECK_API_KEY:-}
+    # Threads, not processes: Tesseract runs as a subprocess outside the GIL, and one process means
+    # one metrics endpoint. Scale with more worker containers if you need more throughput.
+    command:
+      - celery
+      - -A
+      - newsscan.worker.celery_app:celery_app
+      - worker
+      - --pool=threads
+      - --concurrency=2
+      - --loglevel=INFO
+    ports:
+      - "127.0.0.1:9101:9101"
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

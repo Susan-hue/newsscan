@@ -1,0 +1,19 @@
+# Secrets and local config
+.env
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Local runtime data (uploads contain user documents)
+data/
+*.db
+*.db-journal
