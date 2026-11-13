@@ -101,6 +101,6 @@ choice (ADR-011).
 | M2 | OCR evaluation on your own real scans; settle ADR-003 with numbers | next |
 | M3 | More inputs (pasted text, URL with protection against internal addresses); source signals | |
 | M4 | AI finds claims (Groq), Google Fact Check lookup, satire hint (ADR-005, ADR-006) | built; tested with fakes and a few live samples, not measured on real scans |
-| M5 | Hardening: login, rate limits, quotas, deleting old uploads | |
+| M5 | Hardening: login, rate limits, quotas, deleting old uploads | rate limit (ADR-013) and old-upload cleanup (ADR-014) built; login and quotas not started |
 | M6 | OpenTelemetry tracing | dropped (ADR-011) |
 | M7 | React frontend (optional) | |

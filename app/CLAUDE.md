@@ -69,5 +69,5 @@ Tests replace the engine by monkeypatching `ocr.get_ocr_engine` (see `tests/conf
 
 M1 walking skeleton (done). M4 claim checking is built (ADR-005, ADR-006: Groq finds claims, Google Fact Check
 Tools looks them up; keys held in `.env`, never in Git). Next: **M2 OCR evaluation harness** on the owner's real
-scans. Then M3 more inputs (text, URL with SSRF protection), M5 hardening (auth, rate limits, quotas, retention),
+scans. Then M3 more inputs (text, URL with SSRF protection), M5 hardening (auth, quotas; rate limit and old-upload cleanup are built, ADR-013 and ADR-014),
 M7 optional React frontend. M6 OpenTelemetry traces was dropped (ADR-011). Details in `docs/architecture.md`.

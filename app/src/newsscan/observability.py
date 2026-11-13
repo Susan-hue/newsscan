@@ -9,6 +9,7 @@ Metrics (Prometheus):
   newsscan_queue_depth
   newsscan_external_calls_total{service,outcome}
   newsscan_rate_limited_total{window}
+  newsscan_uploads_deleted_total
 
 Logs: one JSON object per line on stdout. Pipeline lines carry scan_id and stage.
 """
@@ -44,6 +45,7 @@ STAGE_SECONDS = Histogram(
     ["stage"],
     buckets=(0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120),
 )
+UPLOADS_DELETED = Counter("newsscan_uploads_deleted_total", "Old uploaded files removed by the cleanup job")
 RATE_LIMITED = Counter(
     "newsscan_rate_limited_total",
     "Uploads turned away by the rate limit. window is minute or day",

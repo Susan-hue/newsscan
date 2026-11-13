@@ -144,7 +144,8 @@ More in [docs/architecture.md](docs/architecture.md). Decisions are in [docs/dec
   Satire that sounds believable is not caught.
 - **No login.** Uploads are limited to 10 a minute and 100 a day per visitor ([ADR-013](docs/decisions/ADR-013-upload-rate-limit.md)), but anyone can still use the app. Fine on localhost, not on the internet.
 - **No tracing, by choice.** The app gives out metrics and JSON logs. Traces were dropped ([ADR-011](docs/decisions/ADR-011-drop-traces.md)).
-- Uploaded files stay on disk in a volume. There is no retention or deletion policy yet.
+- **Old uploads are deleted after a set number of days, but it is off until you turn it on**
+  ([ADR-014](docs/decisions/ADR-014-delete-old-uploads.md)). The text and report stay. Not yet tried on the real volume.
 
 ## Platform
 

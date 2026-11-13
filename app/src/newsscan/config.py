@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 10
     rate_limit_per_day: int = 100
 
+    # Delete the uploaded file this many days after the scan (ADR-014). 0 switches cleanup off.
+    upload_retention_days: int = 0
+
     # Operations
     log_level: str = "INFO"
     celery_always_eager: bool = False  # run tasks inline; used by tests only

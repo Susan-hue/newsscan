@@ -40,6 +40,8 @@ class Scan(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Set when the cleanup job removes the uploaded file. The text and report stay.
+    file_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     document: Mapped["Document | None"] = relationship(
         back_populates="scan", uselist=False, cascade="all, delete-orphan"

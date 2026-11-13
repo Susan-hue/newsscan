@@ -36,6 +36,19 @@ celery_app.conf.update(
 )
 
 
+def build_beat_schedule(retention_days: int) -> dict:
+    """Hourly cleanup of old uploads (ADR-014). Empty unless a retention is set.
+
+    It runs through the worker's own embedded scheduler (the --beat flag), so no extra container is needed.
+    """
+    if retention_days <= 0:
+        return {}
+    return {"cleanup-old-uploads": {"task": "newsscan.cleanup_old_uploads", "schedule": 3600.0}}
+
+
+celery_app.conf.beat_schedule = build_beat_schedule(_settings.upload_retention_days)
+
+
 @setup_logging.connect
 def _configure_logging(**_: object) -> None:
     configure_logging(_settings.log_level)
