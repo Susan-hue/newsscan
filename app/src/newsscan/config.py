@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     fact_check_api_key: SecretStr | None = None
     max_claims_per_scan: int = 5
 
+    # Upload rate limit per visitor (ADR-013). 0 switches that window off.
+    rate_limit_per_minute: int = 10
+    rate_limit_per_day: int = 100
+
     # Operations
     log_level: str = "INFO"
     celery_always_eager: bool = False  # run tasks inline; used by tests only

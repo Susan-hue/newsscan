@@ -19,6 +19,7 @@ docker compose config -q                # validate the compose file without star
 
 Before saying a change is done: `pytest`, `ruff check .`, `ruff format --check .` all pass, and if models changed,
 `alembic check` passes.
+`../scripts/check.sh` runs all of these and more in one go.
 
 ## Layout and boundaries
 

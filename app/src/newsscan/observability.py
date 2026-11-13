@@ -8,6 +8,7 @@ Metrics (Prometheus):
   newsscan_stage_duration_seconds{stage}
   newsscan_queue_depth
   newsscan_external_calls_total{service,outcome}
+  newsscan_rate_limited_total{window}
 
 Logs: one JSON object per line on stdout. Pipeline lines carry scan_id and stage.
 """
@@ -43,6 +44,11 @@ STAGE_SECONDS = Histogram(
     ["stage"],
     buckets=(0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120),
 )
+RATE_LIMITED = Counter(
+    "newsscan_rate_limited_total",
+    "Uploads turned away by the rate limit. window is minute or day",
+    ["window"],
+)
 QUEUE_DEPTH = Gauge("newsscan_queue_depth", "Scan jobs waiting in the queue")
 
 # Pipeline stage names. A test checks this list against pipeline.py.
@@ -68,6 +74,8 @@ for _service in ("groq", "factcheck"):
         EXTERNAL_CALLS.labels(service=_service, outcome=_outcome)
 for _stage in STAGES:
     STAGE_SECONDS.labels(stage=_stage)
+for _window in ("minute", "day"):
+    RATE_LIMITED.labels(window=_window)
 
 _RESERVED = set(logging.LogRecord("", 0, "", 0, "", (), None).__dict__) | {"message", "asctime"}
 

@@ -13,7 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from newsscan import __version__
 from newsscan.api import health, scans
 from newsscan.config import get_settings
-from newsscan.observability import HTTP_REQUESTS, HTTP_SECONDS, configure_logging
+from newsscan.observability import HTTP_REQUESTS, HTTP_SECONDS, RATE_LIMITED, configure_logging
+from newsscan.ratelimit import RateDecision, build_rate_limiter
 
 WEB_DIR = Path(__file__).parent / "web"
 logger = logging.getLogger("newsscan.http")
@@ -40,11 +41,25 @@ def route_template(request: Request) -> str:
     return path
 
 
+def _rate_limit_decision(request: Request) -> RateDecision:
+    """Only uploads are limited. If the limiter itself breaks, let the upload through: it needs Redis for
+    the queue anyway, and a broken limiter should not take the whole service down."""
+    if request.method != "POST" or request.url.path != "/v1/scans":
+        return RateDecision(allowed=True)
+    visitor = request.client.host if request.client else "unknown"  # the connection address, not a header
+    try:
+        return request.app.state.rate_limiter.check(visitor)
+    except Exception:
+        logger.warning("rate limiter unavailable, letting the request through")
+        return RateDecision(allowed=True)
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
 
     app = FastAPI(title="newsscan", version=__version__)
+    app.state.rate_limiter = build_rate_limiter(settings)
     app.include_router(health.router)
     app.include_router(scans.router, prefix="/v1")
     app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
@@ -67,8 +82,17 @@ def create_app() -> FastAPI:
             and declared.isdigit()
             and int(declared) > settings.max_upload_bytes + _MULTIPART_OVERHEAD
         )
+        decision = RateDecision(allowed=True) if too_big else _rate_limit_decision(request)
         if too_big:
             response = JSONResponse({"detail": "The file is too large."}, status_code=413)
+        elif not decision.allowed:
+            RATE_LIMITED.labels(window=decision.window).inc()
+            logger.warning("rate limited", extra={"request_id": request_id, "window": decision.window})
+            response = JSONResponse(
+                {"detail": f"Too many scans. Try again in {decision.retry_after} seconds."},
+                status_code=429,
+                headers={"Retry-After": str(decision.retry_after)},
+            )
         else:
             try:
                 response = await call_next(request)

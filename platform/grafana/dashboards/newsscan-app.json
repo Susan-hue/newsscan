@@ -92,8 +92,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "suffix: s",
-          "decimals": 4
+          "unit": "s"
         },
         "overrides": []
       },
@@ -189,8 +188,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "suffix: s",
-          "decimals": 4
+          "unit": "s"
         },
         "overrides": []
       },
@@ -235,6 +233,38 @@
           },
           "expr": "sum by (service, outcome) (newsscan_external_calls_total)",
           "legendFormat": "{{service}} {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Uploads turned away since the API started",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (window) (newsscan_rate_limited_total)",
+          "legendFormat": "over the {{window}} limit"
         }
       ]
     }

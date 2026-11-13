@@ -68,7 +68,9 @@ Partly done: **prompt injection.** The AI calls (ADR-005, ADR-006) get the page 
 instruction to ignore commands inside it, and their replies are checked before use. That makes it harder, but it
 isn't proven. There is no attack testing yet.
 
-Not done yet: login, rate limits and quotas, protection against requests to internal addresses (needed when URL input
+Done: an upload rate limit (ADR-013).
+
+Not done yet: login, protection against requests to internal addresses (needed when URL input
 arrives), virus scanning, and deleting old uploads.
 
 ## What the monitoring watches
@@ -85,6 +87,7 @@ answers `:9101/healthz` (alive); any other path there is a 404.
 | `newsscan_stage_duration_seconds` | histogram | stage |
 | `newsscan_queue_depth` | gauge | (NaN if Redis can't be reached) |
 | `newsscan_external_calls_total` | counter | service (`groq`, `factcheck`), outcome (`ok`, `error`) |
+| `newsscan_rate_limited_total` | counter | window (`minute`, `day`) |
 
 Route labels use the route **template** (`/v1/scans/{scan_id}`), never the real path, so the number of label values
 stays small. Logs are JSON, one object per line, with `scan_id` and `stage` where they apply. There is no tracing, by

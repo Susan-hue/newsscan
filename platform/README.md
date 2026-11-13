@@ -24,6 +24,17 @@ cd platform
 
 Log in to Grafana as `admin` with that password.
 
+## After switching git branches
+
+Switching or merging branches can replace folders, and a running container keeps looking at the old one. Grafana
+then logs `no such file or directory` and stops seeing new files. After a branch switch, run:
+
+```bash
+cd platform && docker compose up -d --force-recreate
+```
+
+`scripts/check.sh` warns you if this has happened. Saved data is not lost: Prometheus keeps its history in a volume.
+
 ## The dashboard
 
 The dashboard is a file made by a script, not clicked together. To change it:

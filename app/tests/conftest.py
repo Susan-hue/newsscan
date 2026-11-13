@@ -72,6 +72,9 @@ def client(app_env, fake_ocr):
     from fastapi.testclient import TestClient
 
     from newsscan.main import create_app
+    from newsscan.ratelimit import AllowAllLimiter
 
-    with TestClient(create_app()) as test_client:
+    app = create_app()
+    app.state.rate_limiter = AllowAllLimiter()  # no Redis in tests; rate-limit tests set their own
+    with TestClient(app) as test_client:
         yield test_client

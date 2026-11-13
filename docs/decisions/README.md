@@ -18,3 +18,4 @@ keep building, it is marked *Proposed* until the owner accepts or changes it.
 | [009](ADR-009-prometheus-config-layout.md) | Where Prometheus's files go | Accepted (owner) |
 | [010](ADR-010-platform-network-and-compose.md) | How the monitoring stack reaches the app | Accepted (owner) |
 | [011](ADR-011-drop-traces.md) | Metrics and logs only; traces dropped | Accepted (owner), following Claude's recommendation |
+| [013](ADR-013-upload-rate-limit.md) | Limit how many scans one visitor can upload | Accepted (owner) |

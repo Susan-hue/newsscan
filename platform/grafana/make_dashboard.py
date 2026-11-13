@@ -1,10 +1,12 @@
 """Writes the newsscan dashboard as a JSON file that Grafana loads on its own.
 
 Run from the platform/ folder:   python grafana/make_dashboard.py
+Check without writing:           python grafana/make_dashboard.py --check   (fails if the file is out of date)
 To add a panel, add one line to PANELS and run it again. Grafana picks the file up within seconds.
 """
 
 import json
+import sys
 from pathlib import Path
 
 OUTPUT = Path(__file__).parent / "dashboards" / "newsscan-app.json"
@@ -55,6 +57,12 @@ PANELS = [
         "{{service}} {{outcome}}",
         "short",
     ),
+    (
+        "Uploads turned away since the API started",
+        "sum by (window) (newsscan_rate_limited_total)",
+        "over the {{window}} limit",
+        "short",
+    ),
 ]
 
 
@@ -81,5 +89,12 @@ dashboard = {
     "panels": [panel(i, *p) for i, p in enumerate(PANELS, start=1)],
 }
 
-OUTPUT.write_text(json.dumps(dashboard, indent=2) + "\n")
-print(f"wrote {OUTPUT} with {len(PANELS)} panels")
+content = json.dumps(dashboard, indent=2) + "\n"
+
+if "--check" in sys.argv:
+    if not OUTPUT.exists() or OUTPUT.read_text() != content:
+        sys.exit("The dashboard file is out of date. Run: python grafana/make_dashboard.py")
+    print("dashboard file is up to date")
+else:
+    OUTPUT.write_text(content)
+    print(f"wrote {OUTPUT} with {len(PANELS)} panels")

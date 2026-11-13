@@ -101,6 +101,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
 pytest                       # no services needed; Tesseract tests skip if it is missing
+../scripts/check.sh          # every check in one go: tests, lint, migrations, compose files, dashboard, ports, secrets
 ruff check . && ruff format --check .
 
 redis-server &               # queue
@@ -141,7 +142,7 @@ More in [docs/architecture.md](docs/architecture.md). Decisions are in [docs/dec
   `insufficient_evidence`. A satire or invented page with no fact-check looks the same as an honest one.
   Matches can be off-topic. The AI's claim picking and satire hint were tried on a few samples, not measured.
   Satire that sounds believable is not caught.
-- **No authentication, quotas or rate limits.** Fine on localhost, not on the internet.
+- **No login.** Uploads are limited to 10 a minute and 100 a day per visitor ([ADR-013](docs/decisions/ADR-013-upload-rate-limit.md)), but anyone can still use the app. Fine on localhost, not on the internet.
 - **No tracing, by choice.** The app gives out metrics and JSON logs. Traces were dropped ([ADR-011](docs/decisions/ADR-011-drop-traces.md)).
 - Uploaded files stay on disk in a volume. There is no retention or deletion policy yet.
 
