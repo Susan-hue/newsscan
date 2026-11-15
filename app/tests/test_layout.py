@@ -113,3 +113,16 @@ def test_assemble_uses_reading_order_and_confidence():
     assert result.mean_confidence == 90.0
     assert result.engine == "tesseract"
     assert result.text.index("L11a") < result.text.index("R0a")
+
+
+def test_columns_tesseract_already_kept_apart_keep_its_order():
+    # Each column is its own block, as Tesseract gives them when it separated the columns correctly.
+    left = _column("L", left=50, block=1)
+    right = _column("R", left=400, block=2)
+    # ...but its blocks are not in x order, so the result shows whose order was used.
+    words = right + left
+
+    lines = _flat(reading_order(words))
+
+    assert lines[:12] == [f"R{n}a R{n}b R{n}c" for n in range(12)]
+    assert lines[12:] == [f"L{n}a L{n}b L{n}c" for n in range(12)]

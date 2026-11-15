@@ -136,7 +136,9 @@ More in [docs/architecture.md](docs/architecture.md). Decisions are in [docs/dec
 ## Known limitations (read these)
 
 - **OCR on real newspapers is unproven.** Tested only on synthetic pages. Multi-column ordering
-  works on clean and slightly skewed synthetic pages and **fails at about 3 degrees of skew**.
+  works on clean synthetic pages. On pictures of real multi-column pages, the words come out in the wrong order about
+  a quarter of the time or more (scores in ADR-003: about 77% of words in order on 5 pictures). Tilted pages are now straightened first, which helps a lot, but only tested by
+  tilting pictures on purpose, not on real tilted photos.
   See [ADR-003](docs/decisions/ADR-003-ocr-engine.md).
 - **Fact-checking only covers claims someone has already reviewed.** Most pages still end at
   `insufficient_evidence`. A satire or invented page with no fact-check looks the same as an honest one.

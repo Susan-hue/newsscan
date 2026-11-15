@@ -60,7 +60,8 @@ Tests replace the engine by monkeypatching `ocr.get_ocr_engine` (see `tests/conf
 ## Open decisions (ask before building on them)
 
 - **ADR-003** OCR engine: Tesseract is a default, not a decision. Multi-column reading order is a known weak
-  spot (fails at about 3 degrees of skew on synthetic pages); real scans have not been evaluated.
+  spot (words come out in the wrong order on about half of the multi-column pictures scored; pages are straightened
+  first, which helps on tilted ones). No real photographed scans have been evaluated yet.
 - **ADR-004** lists defaults chosen without the owner (Celery and Redis, sync SQLAlchemy, pypdfium2, static page,
   and others). Do not entrench them further without review.
 - **ADR-001** is missing the owner's one-line reasoning for choosing Option C.

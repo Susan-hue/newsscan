@@ -2,7 +2,7 @@ import io
 import shutil
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from newsscan.ingest.ocr import TesseractEngine, _assemble
 from newsscan.ingest.preprocess import prepare_for_ocr
@@ -44,7 +44,7 @@ def test_assemble_with_no_words_gives_empty_text_and_no_confidence():
 
 def test_prepare_for_ocr_scales_small_images_up_and_big_ones_down():
     small = prepare_for_ocr(Image.new("RGB", (500, 300), "white"))
-    assert max(small.size) == 1500 and small.mode == "L"
+    assert max(small.size) == 3000 and small.mode == "L"
     big = prepare_for_ocr(Image.new("RGB", (9000, 3000), "white"))
     assert max(big.size) == 4500
 
@@ -56,3 +56,35 @@ def test_tesseract_reads_a_rendered_sentence():
     result = TesseractEngine().recognize(prepare_for_ocr(page))
     assert "budget" in result.text.lower()
     assert result.mean_confidence is not None and result.mean_confidence > 60
+
+
+def _lined_page(width=1200, height=1600):
+    """A white page of black text-like lines, as straight as a scan can be."""
+    page = Image.new("L", (width, height), 255)
+    draw = ImageDraw.Draw(page)
+    for top in range(100, height - 100, 40):
+        draw.rectangle((100, top, width - 100, top + 18), fill=0)
+    return page
+
+
+@pytest.mark.parametrize("tilt", [-4.0, -2.0, 2.0, 5.0])
+def test_a_tilted_page_is_measured_and_straightened(tilt):
+    from newsscan.ingest.preprocess import estimate_tilt, straighten
+
+    tilted = _lined_page().rotate(tilt, expand=True, fillcolor=255)
+    assert abs(estimate_tilt(tilted) - (-tilt)) <= 0.5
+    assert abs(estimate_tilt(straighten(tilted))) <= 0.5
+
+
+def test_a_straight_page_is_left_alone():
+    from newsscan.ingest.preprocess import straighten
+
+    page = _lined_page()
+    assert straighten(page) is page
+
+
+def test_a_blank_page_is_left_alone():
+    from newsscan.ingest.preprocess import straighten
+
+    page = Image.new("L", (800, 800), 255)
+    assert straighten(page) is page

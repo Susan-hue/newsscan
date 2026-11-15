@@ -6,9 +6,10 @@ are still accurate, so we look for the empty vertical strip between columns (the
 one column at a time, left to right. Large text that is not part of a column (a headline) is read
 first when it sits above the columns.
 
-The rule is deliberately conservative. If no clear gutter is found, or the split would leave a tiny
-sliver of a column, we fall back to the order Tesseract gave us. It has only been tried on
-synthetic pages so far. See docs/decisions/ADR-003-ocr-engine.md.
+The rule is deliberately conservative. If no clear gutter is found, the split would leave a tiny
+sliver of a column, or Tesseract already kept the columns apart, we use the order Tesseract gave us.
+It was built on synthetic pages and checked on a few pictures of real ones.
+See docs/decisions/ADR-003-ocr-engine.md.
 """
 
 from dataclasses import dataclass
@@ -20,6 +21,7 @@ _MIN_COLUMN_SHARE = 0.10  # every column must hold at least this share of the bo
 _MIN_WORD_CONFIDENCE = 30  # ignore OCR noise when looking for gutters
 _LINE_TOLERANCE = 0.6  # words whose centres are within this many median heights share a line
 _PARAGRAPH_GAP = 1.6  # a gap this many line pitches wide starts a new paragraph
+_MERGED_LINE_SHARE = 0.30  # at least this share of lines must run across a gutter for the rule to act
 
 
 @dataclass(frozen=True)
@@ -56,7 +58,7 @@ def reading_order(words: list[Word]) -> list[list[str]]:
     spanning = [w for w in words if w.height > _HEADLINE_FACTOR * med_h]
 
     gutters = _find_gutters(body, med_h)
-    if not gutters:
+    if not gutters or not _columns_were_merged(words, gutters):
         return _tesseract_order(words)
 
     columns: list[list[Word]] = [[] for _ in range(len(gutters) + 1)]
@@ -73,6 +75,28 @@ def reading_order(words: list[Word]) -> list[list[str]]:
     for group in (above, *columns, elsewhere):
         paragraphs.extend(_paragraphs(group, med_h))
     return paragraphs
+
+
+def _columns_were_merged(words: list[Word], gutters: list[int]) -> bool:
+    """True when Tesseract ran neighbouring columns together into the same lines.
+
+    Only then is its order wrong in the way this module fixes. If it already kept the columns apart, its
+    own order is better than a single set of gutters applied to the whole page: on a page with a photo,
+    a boxed advert or columns that change width, one set of gutters cuts the text in the wrong places
+    (59% of words in order, against 77% for Tesseract alone, on a real multi-column page).
+    """
+    lines: dict[tuple[int, int, int], list[Word]] = {}
+    for word in words:
+        lines.setdefault((word.block, word.par, word.line), []).append(word)
+    long_lines = [line for line in lines.values() if len(line) >= 4]
+    if not long_lines:
+        return False
+    crossing = sum(
+        1
+        for line in long_lines
+        if any(any(w.right < g for w in line) and any(w.left > g for w in line) for g in gutters)
+    )
+    return crossing / len(long_lines) >= _MERGED_LINE_SHARE
 
 
 def _find_gutters(body: list[Word], med_h: float) -> list[int]:
