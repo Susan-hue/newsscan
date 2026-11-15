@@ -51,13 +51,13 @@ Grafana picks up the new file within about 10 seconds. Changes made in the Grafa
 | Step | What | Status |
 |---|---|---|
 | A | Prometheus collects metrics from the API and the worker | Done. Both targets are up and queries work. Not yet tried: restarts, a target going down, a day of data |
-| B | Grafana with one dashboard | Done and checked: Grafana loads the 7-panel dashboard from a file, and every panel's query returns data (after one test scan). Not yet tried: a full restart from nothing, and the panels on a failed scan |
-| C | Blackbox Exporter checks | Not started |
+| B | Grafana with one dashboard | Done and checked: Grafana loads the 10-panel dashboard from a file, and every panel's query returns data (after one test scan). Not yet tried: a full restart from nothing, and the panels on a failed scan |
+| C | Blackbox Exporter checks `/healthz` and `/readyz` | Done: all three checks report up, and a stopped worker showed 0. Not yet tried: stopping the API or the database |
 | D | Node Exporter and cAdvisor | Not started |
 | E | Alertmanager and alert rules | Not started |
 | F | One written failure investigation | Not started |
 
 ## Decisions
 
-Build order, scrape timing, file layout and networking are in ADR-007 to ADR-010.
+Build order, scrape timing, file layout and networking are in ADR-007 to ADR-010. Health checks are in ADR-015 (Proposed).
 Claude chose the Prometheus version (v3.5.0). You didn't decide it together.

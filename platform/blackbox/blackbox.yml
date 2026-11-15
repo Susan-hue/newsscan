@@ -1,0 +1,8 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_status_codes: []   # empty means any 2xx counts as up
+      method: GET
+      follow_redirects: false

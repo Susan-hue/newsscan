@@ -40,6 +40,23 @@ Failing at 3 degrees shows how fragile the rule is.
 When it finds no clear strip it falls back to Tesseract's own order, so it shouldn't make plain cases worse.
 That is only checked on made-up pages.
 
+## First numbers on pictures of real newspapers (2026-11-16)
+
+Five pictures, from `app/scripts/ocr_eval.py`. The correct text was **written by Claude from the pictures**, not
+typed by the owner and not checked by anyone yet, so it can contain mistakes. The pictures are stock images and
+web screenshots, mostly under 740 px wide, **not real scans**. The score is on the text the app stores.
+
+| Picture | Wrong characters | Words present | Words in the right order |
+|---|---|---|---|
+| Egypt screenshot (one paragraph) | 0.7% | 98% | 98% |
+| Two news-site screenshots (a headline each) | 15% | 72 to 77% | 72 to 77% |
+| Prohibition page (multi-column) | 64% | 88% | **59%** |
+| Halloween page (multi-column) | 58% | **60%** | 44% |
+
+What it shows: single blocks of text read well. On multi-column pages the words are mostly found but come out in
+the wrong order, and on the Halloween page many words are missing. Not scored: three pictures with low OCR
+confidence (Titanic, Erie, Batman) and two that name private people (left out on purpose).
+
 ## Recommendation (the owner accepts or changes it)
 
 1. Keep Tesseract for now.

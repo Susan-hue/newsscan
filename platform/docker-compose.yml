@@ -21,6 +21,20 @@ services:
       - prometheus-data:/prometheus
     networks:
       - app
+    depends_on:
+      - blackbox
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.27.0   # a fixed version, so it doesn't change on its own
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+    volumes:
+      - ./blackbox:/etc/blackbox:ro   # no ports published: only Prometheus talks to it
+    networks:
+      - app
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]

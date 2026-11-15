@@ -63,6 +63,18 @@ PANELS = [
         "over the {{window}} limit",
         "short",
     ),
+    (
+        "Health checks passing (1 = up, 0 = down)",
+        'probe_success{job="health-checks"}',
+        "{{instance}}",
+        "short",
+    ),
+    (
+        "Health check response time",
+        'probe_duration_seconds{job="health-checks"}',
+        "{{instance}}",
+        SECONDS,
+    ),
 ]
 
 

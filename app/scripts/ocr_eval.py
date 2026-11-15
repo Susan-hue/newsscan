@@ -15,6 +15,7 @@ Pictures with no .txt file are skipped. For each one it prints:
   order         how many of the reference words also appear in the OCR text, even if out of place,
                 next to how many appear in the right place. A big gap means the columns got mixed up.
 
+The OCR text goes through the app's own clean-up first (joins words split across lines).
 Whitespace is ignored (line breaks do not count as errors). Upper and lower case do count.
 """
 
@@ -22,6 +23,7 @@ import sys
 from pathlib import Path
 
 from newsscan.config import get_settings
+from newsscan.extract.normalize import normalise_text
 from newsscan.ingest import loader, ocr
 from newsscan.ingest.preprocess import prepare_for_ocr
 
@@ -89,7 +91,8 @@ def read_page_text(path: Path) -> str:
     data = path.read_bytes()
     pages = loader.load_pages(data, loader.validate_upload(data, settings), settings)
     engine = ocr.get_ocr_engine()
-    return "\n\n".join(engine.recognize(prepare_for_ocr(page)).text for page in pages)
+    raw = "\n\n".join(engine.recognize(prepare_for_ocr(page)).text for page in pages)
+    return normalise_text(raw)  # score what the app stores, not the raw engine output
 
 
 def main(folder: Path) -> None:

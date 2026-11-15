@@ -15,3 +15,21 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ["worker:9101"]
+
+  # Asks the Blackbox Exporter to visit each address, like a user would.
+  - job_name: health-checks
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://api:8000/healthz
+          - http://api:8000/readyz
+          - http://worker:9101/healthz
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
