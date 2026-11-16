@@ -8,6 +8,7 @@ route:
     - matchers: [severity="critical"]
       receiver: ntfy-critical
       group_wait: 10s
+      group_interval: 1m   # so the "Fixed" message arrives within a minute, not five
       repeat_interval: 1h
 
 # The address (it includes your secret topic) is read from a file that Git ignores.

@@ -73,3 +73,47 @@ groups:
         annotations:
           summary: "The API keeps returning server errors"
           description: "The API returned {{ $value | printf \"%.0f\" }} server errors in the last 5 minutes."
+
+  - name: monitoring-itself
+    rules:
+      - alert: PrometheusCantReachAlertmanager
+        expr: prometheus_notifications_alertmanagers_discovered < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alerts have nowhere to go"
+          description: "Prometheus can't find Alertmanager, so no alert can reach your phone."
+
+      - alert: PrometheusCantSendAlerts
+        expr: increase(prometheus_notifications_errors_total[10m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus failed to hand alerts to Alertmanager"
+          description: "Some alerts were not delivered to Alertmanager in the last 10 minutes."
+
+      - alert: AlertmanagerCantSendMessages
+        expr: increase(alertmanager_notifications_failed_total[10m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alertmanager failed to send a message to your phone"
+          description: "Messages to ntfy have failed in the last 10 minutes. Check the internet and the ntfy address."
+
+      - alert: PrometheusRulesBroken
+        expr: increase(prometheus_rule_evaluation_failures_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "An alert rule can't be evaluated"
+          description: "At least one alert rule failed to run in the last 10 minutes, so it may not fire when it should."
+
+      - alert: LogsNotArriving
+        expr: sum(rate(loki_distributor_lines_received_total[10m])) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No logs are reaching Loki"
+          description: "Loki has received no log lines for 10 minutes. Check the Alloy container."

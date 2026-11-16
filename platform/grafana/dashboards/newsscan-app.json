@@ -619,6 +619,38 @@
           "legendFormat": "clients"
         }
       ]
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Alerts firing right now",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 72,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (alertname) (ALERTS{alertstate=\"firing\"})",
+          "legendFormat": "{{alertname}}"
+        }
+      ]
     }
   ]
 }

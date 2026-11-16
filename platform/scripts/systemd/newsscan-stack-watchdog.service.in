@@ -1,0 +1,6 @@
+[Unit]
+Description=Check that Prometheus and Alertmanager are working, and tell the phone if not
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 @REPO@/platform/scripts/stack_watchdog.py

@@ -46,10 +46,10 @@ Nothing was lost.
 | # | Problem | Status |
 |---|---|---|
 | 1 | **A false alarm from my own rule.** `ServerErrors` fired because of one 500 (our single test upload) and sent a warning to the phone. | **Fixed.** It now needs 3 or more server errors in 5 minutes. A test covers both cases |
-| 2 | **The API says 500 when the database is down.** The honest answer is 503 "temporarily unavailable". A 500 looks like a bug in the app, and the message gives the user no hint to try again. | Not changed. It is a small app change. Needs the owner's yes |
-| 3 | **"Fixed" messages are slow, up to 5 minutes.** Alertmanager batches follow-up messages every 5 minutes (`group_interval`). | Not changed. Could be 1 minute for critical alerts. Costs more messages when something flaps |
-| 4 | **The logs are noisy and not collected.** While the database was down, each health probe wrote a long error trace (9 error lines in about 2 minutes). The logs only live on screen. | Open. The log-collection stage (Loki) is the fix |
-| 5 | **Only the alert names tell you which part broke.** There is no dashboard panel for "what is failing now". | Open |
+| 2 | **The API says 500 when the database is down.** The honest answer is 503 "temporarily unavailable". A 500 looks like a bug in the app, and the message gives the user no hint to try again. | **Fixed** (same night, the owner asked for all fixes). 503 with a Retry-After header, one short log line, and a test that fails without the fix |
+| 3 | **"Fixed" messages are slow, up to 5 minutes.** Alertmanager batches follow-up messages every 5 minutes (`group_interval`). | **Fixed.** 1 minute for critical alerts. The cost is more messages if something keeps flapping |
+| 4 | **The logs are noisy and not collected.** While the database was down, each health probe wrote a long error trace (9 error lines in about 2 minutes). The logs only live on screen. | **Partly fixed.** Logs are now collected in Loki and searchable (ADR-019). The health check still writes a full traceback each probe |
+| 5 | **Only the alert names tell you which part broke.** There is no dashboard panel for "what is failing now". | **Fixed.** A panel "Alerts firing right now" on the overview dashboard |
 
 ## What this test does not show
 

@@ -20,7 +20,7 @@ silent mode. ntfy's top priority is built to do that on Android (not yet tested 
 
 ## How it works
 
-Prometheus checks 8 rules (`prometheus/rules/alerts.yml`) and hands firing alerts to Alertmanager. Alertmanager
+Prometheus checks 13 rules (8 about the app and computer, 5 about the monitoring stack itself) (`prometheus/rules/alerts.yml`) and hands firing alerts to Alertmanager. Alertmanager
 groups them and sends a message to ntfy.sh. ntfy turns Alertmanager's data into a readable title and text by
 itself (a template in the address), so there is no extra bridge program.
 
@@ -33,9 +33,11 @@ itself (a template in the address), so there is no extra bridge program.
 | DiskAlmostFull | warning | the disk is over 85% full for 5 minutes |
 | ContainerNumbersStale | warning | the `docker stats` file is older than 2 minutes, or missing |
 | ScansFailing | warning | 3 or more scans failed in 15 minutes |
+| PrometheusCantReachAlertmanager, PrometheusCantSendAlerts, AlertmanagerCantSendMessages | critical | the alert pipeline itself is broken (see ADR-019) |
+| PrometheusRulesBroken, LogsNotArriving | warning | a rule can't run, or no logs reach Loki for 10 minutes |
 | ServerErrors | warning | the API returned 3 or more 5xx errors in 5 minutes (it was "any error" at first, which gave a false alarm: see the investigation) |
 
-Critical alerts go as ntfy priority 5 (urgent), wait 10 seconds before sending and repeat every hour. Warnings are
+Critical alerts go as ntfy priority 5 (urgent), wait 10 seconds before sending, send follow-ups (including "Fixed") after at most 1 minute, and repeat every hour. Warnings are
 priority 3, wait 30 seconds and repeat every 4 hours. You also get a "Fixed" message when a problem ends.
 **The thresholds are Claude's guesses, not measured on a real week of data.** Expect to tune them.
 

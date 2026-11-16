@@ -5,9 +5,18 @@
 
 name: newsscan-platform
 
+# Docker keeps container logs forever unless told otherwise. This caps each container at 3 files of 10 MB,
+# and adds the service name to every line so the log collector can label it.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    labels: "com.docker.compose.service,com.docker.compose.project"
+
 services:
   prometheus:
-    image: prom/prometheus:v3.5.0   # a fixed version, so it doesn't change on its own
+    image: prom/prometheus:v3.16.0   # a fixed version, so it doesn't change on its own
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -28,11 +37,14 @@ services:
       - redis-exporter
       - alertmanager
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
+    read_only: true   # it only writes to its own data volume and /tmp
+    tmpfs: ["/tmp"]
 
   blackbox:
-    image: prom/blackbox-exporter:v0.27.0   # a fixed version, so it doesn't change on its own
+    image: prom/blackbox-exporter:v0.29.1   # a fixed version, so it doesn't change on its own
     command:
       - --config.file=/etc/blackbox/blackbox.yml
     volumes:
@@ -40,11 +52,14 @@ services:
     networks:
       - app
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
+    read_only: true   # it only writes to its own data volume and /tmp
+    tmpfs: ["/tmp"]
 
   node-exporter:
-    image: prom/node-exporter:v1.9.1   # a fixed version, so it doesn't change on its own
+    image: prom/node-exporter:v1.12.1   # a fixed version, so it doesn't change on its own
     command:
       - --path.rootfs=/host   # read the computer's files through the read-only mount below
       - --collector.textfile.directory=/textfile   # per-container numbers from scripts/docker_stats.py
@@ -55,32 +70,41 @@ services:
     networks:
       - app
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
+    read_only: true   # it only writes to its own data volume and /tmp
+    tmpfs: ["/tmp"]
 
   postgres-exporter:
-    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1   # a fixed version
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1   # a fixed version
     environment:
       # A read-only login that can see Postgres's statistics but not your scans (see scripts/create_postgres_monitor_role.sh)
       DATA_SOURCE_NAME: postgresql://monitor:${POSTGRES_EXPORTER_PASSWORD:?Run platform/scripts/create_postgres_monitor_role.sh}@postgres:5432/${POSTGRES_DB:-newsscan}?sslmode=disable
     networks:
       - app
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
+    read_only: true   # it only writes to its own data volume and /tmp
+    tmpfs: ["/tmp"]
 
   redis-exporter:
-    image: oliver006/redis_exporter:v1.67.0   # a fixed version
+    image: oliver006/redis_exporter:v1.97.0   # a fixed version
     command:
       - --redis.addr=redis://redis:6379
     networks:
       - app
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
+    read_only: true   # it only writes to its own data volume and /tmp
+    tmpfs: ["/tmp"]
 
   alertmanager:
-    image: prom/alertmanager:v0.28.1   # a fixed version, so it doesn't change on its own
+    image: prom/alertmanager:v0.35.0   # a fixed version, so it doesn't change on its own
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
@@ -93,8 +117,49 @@ services:
     networks:
       - app
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
+    read_only: true   # it only writes to its own data volume and /tmp
+    tmpfs: ["/tmp"]
+
+  loki:
+    image: grafana/loki:3.7.10   # a fixed version
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./loki:/etc/loki:ro
+      - loki-data:/loki
+    networks:
+      - app
+    restart: unless-stopped
+    logging: *logging
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    read_only: true   # it only writes to its own data volume and /tmp
+    tmpfs: ["/tmp"]
+
+  alloy:
+    image: grafana/alloy:v1.22.0   # a fixed version
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/alloy-data
+      - /etc/alloy/config.alloy
+    user: "0"   # Docker's log files are readable by root only. It can still do nothing else (all capabilities dropped, read-only mounts)
+    volumes:
+      - ./alloy:/etc/alloy:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - alloy-state:/alloy-data
+    networks:
+      - app
+    depends_on:
+      - loki
+    restart: unless-stopped
+    logging: *logging
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    read_only: true   # it only writes to its own data volume and /tmp
+    tmpfs: ["/tmp"]
 
   # Parked, not part of the normal stack: on Docker 29 with the containerd image store it can't name
   # containers (see ADR-016). Start it by hand with: docker compose --profile container-metrics up -d cadvisor
@@ -113,11 +178,12 @@ services:
     networks:
       - app
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
 
   grafana:
-    image: grafana/grafana:12.2.0   # a fixed version, so it doesn't change on its own
+    image: grafana/grafana:12.4.15   # a fixed version, so it doesn't change on its own
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in platform/.env}
       GF_USERS_ALLOW_SIGN_UP: "false"
@@ -133,7 +199,9 @@ services:
       - app
     depends_on:
       - prometheus
+      - loki
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
 
@@ -145,3 +213,5 @@ networks:
 volumes:
   prometheus-data:
   alertmanager-data:
+  loki-data:
+  alloy-state:

@@ -11,6 +11,15 @@
 # the same, even though this file now lives in app/. Don't change it: a new name means new, empty volumes.
 name: newsscan
 
+# Docker keeps container logs forever unless told otherwise. This caps each container at 3 files of 10 MB,
+# and adds the service name to every line so the log collector (platform/) can label it.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    labels: "com.docker.compose.service,com.docker.compose.project"
+
 x-app-env: &app-env
   NEWSSCAN_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-newsscan}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-newsscan}
   NEWSSCAN_REDIS_URL: redis://redis:6379/0
@@ -21,8 +30,11 @@ x-app: &app
   image: newsscan:dev
   environment: *app-env
   restart: unless-stopped
+  logging: *logging
   security_opt: ["no-new-privileges:true"]
   cap_drop: ["ALL"]
+  read_only: true   # the app only writes to the uploads volume and /tmp
+  tmpfs: ["/tmp"]
 
 services:
   postgres:
@@ -31,6 +43,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-newsscan}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-newsscan}
+    logging: *logging
+    security_opt: ["no-new-privileges:true"]
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -44,6 +58,8 @@ services:
     image: redis:7-alpine
     # No persistence: the queue only holds scan ids, and the database is the source of truth.
     command: ["redis-server", "--save", "", "--appendonly", "no"]
+    logging: *logging
+    security_opt: ["no-new-privileges:true"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

@@ -1,0 +1,56 @@
+// Reads every container's log file and sends the lines to Loki.
+// Docker writes them as JSON lines under /var/lib/docker/containers (mounted read-only).
+
+local.file_match "containers" {
+  path_targets = [{"__path__" = "/var/lib/docker/containers/*/*-json.log"}]
+}
+
+loki.source.file "containers" {
+  targets    = local.file_match.containers.targets
+  forward_to = [loki.process.docker.receiver]
+}
+
+loki.process "docker" {
+  // A Docker log line looks like {"log": "...", "stream": "stdout", "time": "...", "attrs": {...}}
+  stage.json {
+    expressions = {
+      line   = "log",
+      stream = "stream",
+      time   = "time",
+      attrs  = "attrs",
+    }
+  }
+  // The compose service name ("api", "worker"...) comes from the labels we ask Docker to add.
+  stage.json {
+    source      = "attrs"
+    expressions = {
+      service = "\"com.docker.compose.service\"",
+      project = "\"com.docker.compose.project\"",
+    }
+  }
+  stage.timestamp {
+    source = "time"
+    format = "RFC3339Nano"
+  }
+  stage.labels {
+    values = {
+      service = "",
+      project = "",
+      stream  = "",
+    }
+  }
+  // Drop the file name label: it holds a container id, and nobody needs it for searching.
+  stage.label_drop {
+    values = ["filename"]
+  }
+  stage.output {
+    source = "line"
+  }
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

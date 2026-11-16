@@ -1,16 +1,18 @@
-"""Writes the newsscan dashboard as a JSON file that Grafana loads on its own.
+"""Writes the newsscan dashboards as JSON files that Grafana loads on its own.
 
 Run from the platform/ folder:   python grafana/make_dashboard.py
 Check without writing:           python grafana/make_dashboard.py --check   (fails if the file is out of date)
-To add a panel, add one line to PANELS and run it again. Grafana picks the file up within seconds.
+To add a panel, add one line to PANELS (numbers) or LOG_PANELS (logs) and run it again.
+Grafana picks the files up within seconds.
 """
 
 import json
 import sys
 from pathlib import Path
 
-OUTPUT = Path(__file__).parent / "dashboards" / "newsscan-app.json"
+DASHBOARDS_DIR = Path(__file__).parent / "dashboards"
 DATASOURCE = {"type": "prometheus", "uid": "prometheus"}  # set in provisioning/datasources/prometheus.yml
+LOKI = {"type": "loki", "uid": "loki"}  # set in provisioning/datasources/loki.yml
 
 SECONDS = "s"  # Grafana picks the best size by itself: 9.2 ms for small values, 1.5 s for larger ones
 PANELS = [
@@ -130,6 +132,12 @@ PANELS = [
         "clients",
         "short",
     ),
+    (
+        "Alerts firing right now",
+        'sum by (alertname) (ALERTS{alertstate="firing"})',
+        "{{alertname}}",
+        "short",
+    ),
 ]
 
 
@@ -145,23 +153,77 @@ def panel(number: int, title: str, query: str, legend: str, unit: str) -> dict:
     }
 
 
-dashboard = {
-    "uid": "newsscan-overview",
-    "title": "newsscan overview",
-    "tags": ["newsscan"],
-    "timezone": "browser",
-    "schemaVersion": 41,
-    "refresh": "30s",
-    "time": {"from": "now-1h", "to": "now"},
-    "panels": [panel(i, *p) for i, p in enumerate(PANELS, start=1)],
+# The same words in every log line that means trouble: the app's JSON "level" field, or the word "error".
+_TROUBLE = r'|~ `(?i)"level": ?"(warning|error|critical)"|error`'
+
+# (title, kind, query). "graph" draws lines, "lines" lists log lines.
+LOG_PANELS = [
+    (
+        "Warnings and errors per minute, by service",
+        "graph",
+        'sum by (service) (count_over_time({service=~".+"} ' + _TROUBLE + " [1m]))",
+    ),
+    ("Recent warnings and errors, all services", "lines", '{service=~".+"} ' + _TROUBLE),
+    ("API and worker log", "lines", '{service=~"api|worker"}'),
+]
+
+
+def log_panel(number: int, title: str, kind: str, query: str) -> dict:
+    if kind == "graph":
+        return {
+            "id": number,
+            "type": "timeseries",
+            "title": title,
+            "datasource": LOKI,
+            "gridPos": {"x": 0, "y": 8 * (number - 1), "w": 24, "h": 8},
+            "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+            "targets": [{"refId": "A", "datasource": LOKI, "expr": query, "legendFormat": "{{service}}"}],
+        }
+    return {
+        "id": number,
+        "type": "logs",
+        "title": title,
+        "datasource": LOKI,
+        "gridPos": {"x": 0, "y": 8 * (number - 1), "w": 24, "h": 10},
+        "options": {"showTime": True, "wrapLogMessage": True, "sortOrder": "Descending"},
+        "targets": [{"refId": "A", "datasource": LOKI, "expr": query, "maxLines": 100}],
+    }
+
+
+def build(uid: str, title: str, panels: list[dict]) -> dict:
+    return {
+        "uid": uid,
+        "title": title,
+        "tags": ["newsscan"],
+        "timezone": "browser",
+        "schemaVersion": 41,
+        "refresh": "30s",
+        "time": {"from": "now-1h", "to": "now"},
+        "panels": panels,
+    }
+
+
+DASHBOARDS = {
+    "newsscan-app.json": build(
+        "newsscan-overview", "newsscan overview", [panel(i, *p) for i, p in enumerate(PANELS, start=1)]
+    ),
+    "newsscan-logs.json": build(
+        "newsscan-logs", "newsscan logs", [log_panel(i, *p) for i, p in enumerate(LOG_PANELS, start=1)]
+    ),
 }
 
-content = json.dumps(dashboard, indent=2) + "\n"
+stale = []
+for name, dashboard in DASHBOARDS.items():
+    path = DASHBOARDS_DIR / name
+    content = json.dumps(dashboard, indent=2) + "\n"
+    if "--check" in sys.argv:
+        if not path.exists() or path.read_text() != content:
+            stale.append(name)
+    else:
+        path.write_text(content)
+        print(f"wrote {path} with {len(dashboard['panels'])} panels")
 
 if "--check" in sys.argv:
-    if not OUTPUT.exists() or OUTPUT.read_text() != content:
-        sys.exit("The dashboard file is out of date. Run: python grafana/make_dashboard.py")
-    print("dashboard file is up to date")
-else:
-    OUTPUT.write_text(content)
-    print(f"wrote {OUTPUT} with {len(PANELS)} panels")
+    if stale:
+        sys.exit(f"Out of date: {', '.join(stale)}. Run: python grafana/make_dashboard.py")
+    print("dashboard files are up to date")

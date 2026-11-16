@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import InterfaceError, OperationalError
 
 from newsscan import __version__
 from newsscan.api import health, scans
@@ -96,6 +97,17 @@ def create_app() -> FastAPI:
         else:
             try:
                 response = await call_next(request)
+            except (OperationalError, InterfaceError) as exc:
+                # The database can't be reached. That is "try again later" (503), not a bug in the app (500),
+                # and it needs one short log line, not a long traceback for every request.
+                logger.warning(
+                    "database unavailable", extra={"request_id": request_id, "error": type(exc).__name__}
+                )
+                response = JSONResponse(
+                    {"detail": "The service is temporarily unavailable. Try again shortly."},
+                    status_code=503,
+                    headers={"Retry-After": "30"},
+                )
             except Exception:
                 logger.exception("unhandled error", extra={"request_id": request_id})
                 response = JSONResponse({"detail": "Internal server error."}, status_code=500)

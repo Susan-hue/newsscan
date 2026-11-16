@@ -77,6 +77,16 @@ no_secret_values_in_files() {  # looks for the real values of your keys and pass
   [ -z "$hits" ] || { echo "A real secret value appears in these files (not printing it):"; echo "$hits"; return 1; }
 }
 
+loki_and_alloy_config() {  # both configs are checked with the same image versions the stack runs
+  local loki alloy
+  loki=$(grep -oE 'grafana/loki:[^ ]+' "$ROOT/platform/docker-compose.yml" | head -1)
+  alloy=$(grep -oE 'grafana/alloy:[^ ]+' "$ROOT/platform/docker-compose.yml" | head -1)
+  docker run --rm -v "$ROOT/platform/loki:/etc/loki:ro" "$loki" -config.file=/etc/loki/loki.yml -verify-config >/dev/null 2>&1 \
+    || { echo "Loki config is not valid"; return 1; }
+  docker run --rm -v "$ROOT/platform/alloy:/etc/alloy:ro" "$alloy" validate /etc/alloy/config.alloy >/dev/null 2>&1 \
+    || { echo "Alloy config is not valid"; return 1; }
+}
+
 alert_rule_tests() {  # the alert rules are tested with fake data, so a rule that never fires can't hide
   local image
   image=$(grep -oE 'prom/prometheus:[^ ]+' "$ROOT/platform/docker-compose.yml" | head -1)
@@ -113,6 +123,7 @@ if docker info >/dev/null 2>&1; then
   step "Prometheus config"       prometheus_config
   step "Alert rule tests"        alert_rule_tests
   step "Alertmanager config"     alertmanager_config
+  step "Loki and Alloy config"   loki_and_alloy_config
   step "Containers see current files" containers_see_current_files
 else
   skip "App compose file" "Docker is not running"
@@ -120,6 +131,7 @@ else
   skip "Prometheus config" "Docker is not running"
   skip "Alert rule tests" "Docker is not running"
   skip "Alertmanager config" "Docker is not running"
+  skip "Loki and Alloy config" "Docker is not running"
   skip "Containers see current files" "Docker is not running"
 fi
 

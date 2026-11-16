@@ -62,6 +62,19 @@ For urgent alerts to break through silent mode on Android, open the topic's sett
 override Do Not Disturb. Treat the topic like a password: don't paste it into chats, issues or commits.
 Alertmanager's own page is at http://127.0.0.1:9093. See ADR-018 for the limits.
 
+## Logs and the watchdog (first time)
+
+Logs need nothing extra: `docker compose up -d` starts Loki and Alloy, and both compose files cap log sizes.
+Open Grafana, then the **newsscan logs** dashboard, or Explore with the Loki source and a search like
+`{service="worker"} |= "<a scan id>"`.
+
+The watchdog checks Prometheus and Alertmanager from outside Docker and messages your phone if they are down:
+
+```bash
+bash platform/scripts/install_watchdog_timer.sh      # every minute (--remove undoes it)
+python3 platform/scripts/stack_watchdog.py --dry-run # try it: sends nothing
+```
+
 ## The dashboard
 
 The dashboard is a file made by a script, not clicked together. To change it:
@@ -78,10 +91,11 @@ Grafana picks up the new file within about 10 seconds. Changes made in the Grafa
 | Step | What | Status |
 |---|---|---|
 | A | Prometheus collects metrics from the API and the worker | Done. Both targets are up and queries work. Not yet tried: restarts, a target going down, a day of data |
-| B | Grafana with one dashboard | Done and checked: Grafana loads the 19-panel dashboard from a file, and every panel's query returns data (after one test scan). Not yet tried: a full restart from nothing, and the panels on a failed scan |
+| B | Grafana with one dashboard | Done and checked: Grafana loads the 20-panel dashboard from a file, and every panel's query returns data (after one test scan). Not yet tried: a full restart from nothing, and the panels on a failed scan |
 | C | Blackbox Exporter checks `/healthz` and `/readyz` | Done: all three checks report up, and a stopped worker showed 0. Not yet tried: stopping the API or the database |
 | D | The computer, each container, Postgres and Redis | Done: Node Exporter (computer), a `docker stats` script (each container; cAdvisor is parked, ADR-016), Postgres and Redis exporters (ADR-017). Not yet tried: a full disk, a reboot, Postgres or Redis going down |
 | E | Alertmanager, 8 alert rules, messages to your phone through ntfy | Built. A test message was delivered. Not yet tried: a real failure, the urgent alert on your phone, or the "Fixed" message (ADR-018) |
+| G | Logs (Loki and Alloy), watching Prometheus itself, newer versions, hardening | Built overnight by Claude: all Proposed, see ADR-019 and the [security review](../docs/security-review-2026-11-16.md). Not yet tried: a real reboot, Redis down, the watchdog sending an urgent message |
 | F | One written failure investigation | Done: [Postgres stopped on purpose](../docs/investigations/2026-11-16-postgres-outage.md). Found 5 problems, 1 fixed. Other failures not tried |
 
 ## Decisions

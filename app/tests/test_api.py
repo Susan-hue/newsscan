@@ -124,3 +124,24 @@ def test_report_schema_passes_fact_check_items_through_and_tolerates_old_reports
     assert SignalOut.model_validate(base).items == []  # reports stored before M4 have no items
     item = {"publisher": "P", "rating": "False", "url": "https://a.example/x", "claim": "c"}
     assert SignalOut.model_validate({**base, "items": [item]}).items == [item]
+
+
+def test_database_outage_returns_503_not_500(client):
+    from sqlalchemy.exc import OperationalError
+
+    from newsscan.db import get_session
+
+    def broken_session():
+        raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+        yield  # pragma: no cover  (makes this a generator, like the real dependency)
+
+    client.app.dependency_overrides[get_session] = broken_session
+    try:
+        response = client.post("/v1/scans", files={"file": ("a.png", make_image(), "image/png")})
+    finally:
+        client.app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == "30"
+    assert "temporarily unavailable" in response.json()["detail"]
+    assert "connection refused" not in response.text  # internal details stay in the logs

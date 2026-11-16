@@ -94,3 +94,54 @@ tests:
             exp_annotations:
               summary: "The API keeps returning server errors"
               description: "The API returned 20 server errors in the last 5 minutes."
+
+  - name: alerts with nowhere to go are reported, and failed messages are noticed
+    interval: 1m
+    input_series:
+      - series: 'prometheus_notifications_alertmanagers_discovered{job="prometheus"}'
+        values: "1 1 0 0 0 0 0 0"
+      - series: 'alertmanager_notifications_failed_total{integration="webhook"}'
+        values: "0 0 0 0 1 2 2 2"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PrometheusCantReachAlertmanager
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: PrometheusCantReachAlertmanager
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: prometheus
+            exp_annotations:
+              summary: "Alerts have nowhere to go"
+              description: "Prometheus can't find Alertmanager, so no alert can reach your phone."
+      - eval_time: 3m
+        alertname: AlertmanagerCantSendMessages
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: AlertmanagerCantSendMessages
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              integration: webhook
+            exp_annotations:
+              summary: "Alertmanager failed to send a message to your phone"
+              description: "Messages to ntfy have failed in the last 10 minutes. Check the internet and the ntfy address."
+
+  - name: no logs for ten minutes is reported
+    interval: 1m
+    input_series:
+      - series: 'loki_distributor_lines_received_total{tenant="fake"}'
+        values: "5 10 15 20 20x30"
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: LogsNotArriving
+        exp_alerts: []
+      - eval_time: 26m
+        alertname: LogsNotArriving
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "No logs are reaching Loki"
+              description: "Loki has received no log lines for 10 minutes. Check the Alloy container."
