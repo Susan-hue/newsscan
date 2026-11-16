@@ -158,5 +158,8 @@ It is a learning project, not production.
 | Step | Status |
 |---|---|
 | A Prometheus | Done and checked locally. Recap pending |
-| B Grafana | Done and checked: 7-panel dashboard loads from a file |
-| C to F | Not started |
+| B Grafana | Done and checked: 13-panel dashboard loads from a file |
+| C Blackbox | Done: health checks for the API and worker |
+| D Computer, containers, database, queue | Done: the computer, each container, Postgres and Redis ([ADR-016](docs/decisions/ADR-016-machine-and-container-metrics.md), [ADR-017](docs/decisions/ADR-017-container-database-and-queue-metrics.md)) |
+| E Alerts | Built: 8 alert rules, Alertmanager, phone messages through ntfy ([ADR-018](docs/decisions/ADR-018-alerts-to-phone.md)). A test message was delivered. Not yet tried: a real failure, or the urgent path on your phone |
+| F Failure investigation | Not started |

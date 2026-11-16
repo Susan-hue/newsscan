@@ -75,6 +75,61 @@ PANELS = [
         "{{instance}}",
         SECONDS,
     ),
+    (
+        "Computer CPU in use",
+        '100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[1m])))',
+        "CPU",
+        "percent",
+    ),
+    (
+        "Computer memory in use",
+        "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
+        "memory",
+        "percent",
+    ),
+    (
+        "Disk space used",
+        '100 * (1 - node_filesystem_avail_bytes{mountpoint="/"}'
+        ' / node_filesystem_size_bytes{mountpoint="/"})',
+        "disk",
+        "percent",
+    ),
+    (
+        "Memory used by each container",
+        "newsscan_docker_container_memory_usage_bytes",
+        "{{name}}",
+        "bytes",
+    ),
+    (
+        "CPU used by each container (100 = one full core)",
+        "newsscan_docker_container_cpu_percent",
+        "{{name}}",
+        "percent",
+    ),
+    (
+        "Database connections",
+        'sum(pg_stat_database_numbackends{datname="newsscan"})',
+        "open connections",
+        "short",
+    ),
+    (
+        "Database size",
+        'pg_database_size_bytes{datname="newsscan"}',
+        "newsscan database",
+        "bytes",
+    ),
+    (
+        "Redis memory (the queue)",
+        "redis_memory_used_bytes",
+        "memory",
+        "bytes",
+    ),
+    (
+        "Redis connected clients",
+        "redis_connected_clients",
+        "clients",
+        "short",
+    ),
 ]
 
 

@@ -21,3 +21,9 @@ data/
 
 # Pictures used to test OCR (not ours to publish)
 app/test_assests/
+
+# Written by platform/scripts/docker_stats.py
+platform/textfile/*.prom
+
+# The secret ntfy address and topic
+platform/secrets/

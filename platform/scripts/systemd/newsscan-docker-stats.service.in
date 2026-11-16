@@ -1,0 +1,6 @@
+[Unit]
+Description=Write per-container Docker numbers for Node Exporter
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 @REPO@/platform/scripts/docker_stats.py

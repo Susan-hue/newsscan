@@ -1,0 +1,76 @@
+rule_files:
+  - ../rules/alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: a failing health check fires after one minute, a passing one does not
+    interval: 1m
+    input_series:
+      - series: 'probe_success{job="health-checks", instance="http://api:8000/readyz"}'
+        values: "1 1 0 0 0 0"
+      - series: 'probe_success{job="health-checks", instance="http://worker:9101/healthz"}'
+        values: "1 1 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: HealthCheckFailing
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: HealthCheckFailing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: health-checks
+              instance: http://api:8000/readyz
+            exp_annotations:
+              summary: "A health check is failing"
+              description: "http://api:8000/readyz has not answered for 1 minute."
+
+  - name: the disk alert needs the disk over 85 percent for 5 minutes
+    interval: 1m
+    input_series:
+      - series: 'node_filesystem_size_bytes{mountpoint="/"}'
+        values: "100x12"
+      - series: 'node_filesystem_avail_bytes{mountpoint="/"}'
+        values: "30 30 10 10 10 10 10 10 10 10 10 10"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: DiskAlmostFull
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: DiskAlmostFull
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              mountpoint: "/"
+            exp_annotations:
+              summary: "The disk is almost full"
+              description: "The disk is 90% full."
+
+  - name: stale container numbers fire when the file stops being updated
+    interval: 1m
+    input_series:
+      - series: 'node_textfile_mtime_seconds{file="/textfile/docker_containers.prom"}'
+        values: "0 0 0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: ContainerNumbersStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              file: /textfile/docker_containers.prom
+            exp_annotations:
+              summary: "Per-container numbers have stopped updating"
+              description: "The docker stats timer may have stopped. Check: systemctl --user list-timers newsscan-docker-stats.timer"
+
+  - name: three failed scans in 15 minutes fire, two do not
+    interval: 1m
+    input_series:
+      - series: 'newsscan_scans_finished_total{outcome="failed", job="newsscan-worker"}'
+        values: "0 0 1 1 2 2 2 2"
+      - series: 'newsscan_scans_finished_total{outcome="done", job="newsscan-worker"}'
+        values: "0 5 10 15 20 25 30 35"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ScansFailing
+        exp_alerts: []

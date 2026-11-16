@@ -20,5 +20,8 @@ keep building, it is marked *Proposed* until the owner accepts or changes it.
 | [011](ADR-011-drop-traces.md) | Metrics and logs only; traces dropped | Accepted (owner), following Claude's recommendation |
 | [012](ADR-012-grafana-setup.md) | How Grafana is set up | Accepted (owner) |
 | [015](ADR-015-blackbox-health-checks.md) | Health checks with the Blackbox Exporter | **Proposed** (Claude's choice) |
+| [016](ADR-016-machine-and-container-metrics.md) | Metrics from the computer and from each container | Owner chose both tools. Node Exporter works, cAdvisor is parked |
+| [017](ADR-017-container-database-and-queue-metrics.md) | Per-container numbers, and metrics for Postgres and Redis | Per-container approach approved by the owner. The rest is Proposed |
+| [018](ADR-018-alerts-to-phone.md) | Alerts, and how they reach your phone | ntfy chosen by the owner. The alert list and thresholds are Proposed |
 | [013](ADR-013-upload-rate-limit.md) | Limit how many scans one visitor can upload | Accepted (owner) |
 | [014](ADR-014-delete-old-uploads.md) | Delete old uploaded files (7 days, keep the rows) | Accepted (owner). The scheduler is Proposed (Claude's choice) |

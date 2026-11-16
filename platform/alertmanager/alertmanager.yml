@@ -1,0 +1,23 @@
+route:
+  receiver: ntfy-warning
+  group_by: [alertname]
+  group_wait: 30s        # wait a little, so alerts that start together arrive as one message
+  group_interval: 5m
+  repeat_interval: 4h    # remind every 4 hours while it stays broken
+  routes:
+    - matchers: [severity="critical"]
+      receiver: ntfy-critical
+      group_wait: 10s
+      repeat_interval: 1h
+
+# The address (it includes your secret topic) is read from a file that Git ignores.
+# scripts/setup_ntfy.sh makes the files.
+receivers:
+  - name: ntfy-critical
+    webhook_configs:
+      - url_file: /secrets/ntfy_critical_url
+        send_resolved: true
+  - name: ntfy-warning
+    webhook_configs:
+      - url_file: /secrets/ntfy_warning_url
+        send_resolved: true

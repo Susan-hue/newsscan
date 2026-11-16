@@ -23,6 +23,10 @@ services:
       - app
     depends_on:
       - blackbox
+      - node-exporter
+      - postgres-exporter
+      - redis-exporter
+      - alertmanager
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
@@ -33,6 +37,79 @@ services:
       - --config.file=/etc/blackbox/blackbox.yml
     volumes:
       - ./blackbox:/etc/blackbox:ro   # no ports published: only Prometheus talks to it
+    networks:
+      - app
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1   # a fixed version, so it doesn't change on its own
+    command:
+      - --path.rootfs=/host   # read the computer's files through the read-only mount below
+      - --collector.textfile.directory=/textfile   # per-container numbers from scripts/docker_stats.py
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($$|/)
+    volumes:
+      - /:/host:ro,rslave   # read-only. No ports published: only Prometheus talks to it
+      - ./textfile:/textfile:ro
+    networks:
+      - app
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1   # a fixed version
+    environment:
+      # A read-only login that can see Postgres's statistics but not your scans (see scripts/create_postgres_monitor_role.sh)
+      DATA_SOURCE_NAME: postgresql://monitor:${POSTGRES_EXPORTER_PASSWORD:?Run platform/scripts/create_postgres_monitor_role.sh}@postgres:5432/${POSTGRES_DB:-newsscan}?sslmode=disable
+    networks:
+      - app
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.67.0   # a fixed version
+    command:
+      - --redis.addr=redis://redis:6379
+    networks:
+      - app
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1   # a fixed version, so it doesn't change on its own
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"   # only reachable from this computer
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+      - ./secrets:/secrets:ro   # the secret ntfy address, made by scripts/setup_ntfy.sh
+      - alertmanager-data:/alertmanager
+    networks:
+      - app
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  # Parked, not part of the normal stack: on Docker 29 with the containerd image store it can't name
+  # containers (see ADR-016). Start it by hand with: docker compose --profile container-metrics up -d cadvisor
+  cadvisor:
+    profiles: ["container-metrics"]
+    image: ghcr.io/google/cadvisor:v0.53.0   # a fixed version, so it doesn't change on its own
+    command:
+      - --docker_only=true   # only containers, not every process
+      - --housekeeping_interval=15s
+      - --disable_metrics=percpu,sched,tcp,udp,advtcp,hugetlb,referenced_memory,cpu_topology,resctrl,process
+    volumes:   # all read-only. No ports published: only Prometheus talks to it
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
     networks:
       - app
     restart: unless-stopped
@@ -67,3 +144,4 @@ networks:
 
 volumes:
   prometheus-data:
+  alertmanager-data:

@@ -1,0 +1,75 @@
+groups:
+  - name: newsscan
+    rules:
+      - alert: HealthCheckFailing
+        expr: probe_success{job="health-checks"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A health check is failing"
+          description: "{{ $labels.instance }} has not answered for 1 minute."
+
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus can't reach a target"
+          description: "{{ $labels.job }} ({{ $labels.instance }}) has been unreachable for 2 minutes."
+
+      - alert: DatabaseDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Postgres is not answering"
+          description: "The database has been down for 1 minute. Scans can't be saved."
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is not answering"
+          description: "The queue has been down for 1 minute. New scans can't be queued."
+
+      - alert: DiskAlmostFull
+        expr: 100 * (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The disk is almost full"
+          description: "The disk is {{ $value | printf \"%.0f\" }}% full."
+
+      - alert: ContainerNumbersStale
+        expr: |
+          (time() - node_textfile_mtime_seconds{file=~".*docker_containers.prom"} > 120)
+          or (absent(node_textfile_mtime_seconds{file=~".*docker_containers.prom"}) * 1)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Per-container numbers have stopped updating"
+          description: "The docker stats timer may have stopped. Check: systemctl --user list-timers newsscan-docker-stats.timer"
+
+      - alert: ScansFailing
+        expr: sum(increase(newsscan_scans_finished_total{outcome="failed"}[15m])) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "Several scans failed"
+          description: "{{ $value | printf \"%.0f\" }} scans failed in the last 15 minutes."
+
+      - alert: ServerErrors
+        expr: sum(rate(newsscan_http_requests_total{status=~"5.."}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The API keeps returning server errors"
+          description: "The API has been returning 5xx errors for 5 minutes."
