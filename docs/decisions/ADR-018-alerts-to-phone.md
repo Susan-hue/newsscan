@@ -33,7 +33,7 @@ itself (a template in the address), so there is no extra bridge program.
 | DiskAlmostFull | warning | the disk is over 85% full for 5 minutes |
 | ContainerNumbersStale | warning | the `docker stats` file is older than 2 minutes, or missing |
 | ScansFailing | warning | 3 or more scans failed in 15 minutes |
-| ServerErrors | warning | the API returned 5xx errors for 5 minutes |
+| ServerErrors | warning | the API returned 3 or more 5xx errors in 5 minutes (it was "any error" at first, which gave a false alarm: see the investigation) |
 
 Critical alerts go as ntfy priority 5 (urgent), wait 10 seconds before sending and repeat every hour. Warnings are
 priority 3, wait 30 seconds and repeat every 4 hours. You also get a "Fixed" message when a problem ends.
@@ -52,8 +52,10 @@ priority 3, wait 30 seconds and repeat every 4 hours. You also get a "Fixed" mes
 
 - The 4 rule groups are tested with fake data (`promtool test rules`), and the test fails when a rule is broken.
 - A test alert went through Alertmanager to ntfy.sh, and read back correctly: "PROBLEM: TestAlert", priority 3.
-- **Not tested:** a real alert from a real failure, the "urgent" path on the phone, the "Fixed" message, and any
-  of this on the phone itself (the owner still has to subscribe).
+- A real failure (Postgres stopped on purpose): the alerts and the "Fixed" messages reached the owner's phone. See
+  `docs/investigations/2026-11-16-postgres-outage.md`.
+- **Not tested:** whether the urgent priority breaks through silent mode (the owner's phone is on vibration), and
+  failures other than Postgres.
 
 ## Limits to know
 

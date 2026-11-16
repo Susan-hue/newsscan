@@ -82,7 +82,7 @@ Grafana picks up the new file within about 10 seconds. Changes made in the Grafa
 | C | Blackbox Exporter checks `/healthz` and `/readyz` | Done: all three checks report up, and a stopped worker showed 0. Not yet tried: stopping the API or the database |
 | D | The computer, each container, Postgres and Redis | Done: Node Exporter (computer), a `docker stats` script (each container; cAdvisor is parked, ADR-016), Postgres and Redis exporters (ADR-017). Not yet tried: a full disk, a reboot, Postgres or Redis going down |
 | E | Alertmanager, 8 alert rules, messages to your phone through ntfy | Built. A test message was delivered. Not yet tried: a real failure, the urgent alert on your phone, or the "Fixed" message (ADR-018) |
-| F | One written failure investigation | Not started |
+| F | One written failure investigation | Done: [Postgres stopped on purpose](../docs/investigations/2026-11-16-postgres-outage.md). Found 5 problems, 1 fixed. Other failures not tried |
 
 ## Decisions
 

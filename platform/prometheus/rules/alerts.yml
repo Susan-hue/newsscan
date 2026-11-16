@@ -66,10 +66,10 @@ groups:
           description: "{{ $value | printf \"%.0f\" }} scans failed in the last 15 minutes."
 
       - alert: ServerErrors
-        expr: sum(rate(newsscan_http_requests_total{status=~"5.."}[5m])) > 0
-        for: 5m
+        expr: sum(increase(newsscan_http_requests_total{status=~"5.."}[5m])) >= 3
+        for: 1m
         labels:
           severity: warning
         annotations:
           summary: "The API keeps returning server errors"
-          description: "The API has been returning 5xx errors for 5 minutes."
+          description: "The API returned {{ $value | printf \"%.0f\" }} server errors in the last 5 minutes."

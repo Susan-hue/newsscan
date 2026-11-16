@@ -74,3 +74,23 @@ tests:
       - eval_time: 5m
         alertname: ScansFailing
         exp_alerts: []
+
+  - name: one server error is ignored, a steady run of them fires
+    interval: 1m
+    input_series:
+      - series: 'newsscan_http_requests_total{status="500", route="/v1/scans", method="POST"}'
+        values: "0 0 1 1 1 1 1 1 1 1"
+      - series: 'newsscan_http_requests_total{status="503", route="/v1/scans", method="POST"}'
+        values: "0 0 0 0 0 4 8 12 16 20"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: ServerErrors
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: ServerErrors
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "The API keeps returning server errors"
+              description: "The API returned 20 server errors in the last 5 minutes."
